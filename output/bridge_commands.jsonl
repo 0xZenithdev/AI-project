@@ -1,0 +1,7 @@
+{"cmd": "START"}
+{"cmd": "PEN_UP"}
+{"cmd": "MOVE", "x": 20.0, "y": 20.0, "speed": 60.0}
+{"cmd": "PEN_DOWN"}
+{"cmd": "MOVE", "x": 35.0, "y": 20.0, "speed": 35.0}
+{"cmd": "PEN_UP"}
+{"cmd": "END"}
