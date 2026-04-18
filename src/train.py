@@ -27,6 +27,18 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--images-dir", type=str, default="dataset/images", help="Input images directory")
     parser.add_argument("--masks-dir", type=str, default="dataset/masks", help="Target masks directory")
+    parser.add_argument(
+        "--train-manifest",
+        type=str,
+        default="",
+        help="Optional JSON manifest for the training split",
+    )
+    parser.add_argument(
+        "--val-manifest",
+        type=str,
+        default="",
+        help="Optional JSON manifest for the validation split",
+    )
 
     parser.add_argument("--width", type=int, default=210, help="Training width")
     parser.add_argument("--height", type=int, default=297, help="Training height")
@@ -66,19 +78,38 @@ def main() -> None:
     args = parse_args()
 
     device = torch.device(args.device)
-    dataset = LinePairDataset(
-        images_dir=args.images_dir,
-        masks_dir=args.masks_dir,
-        size=(args.width, args.height),
-    )
+    if args.train_manifest:
+        train_set = LinePairDataset(
+            images_dir=args.images_dir,
+            masks_dir=args.masks_dir,
+            size=(args.width, args.height),
+            manifest_path=args.train_manifest,
+        )
+        if args.val_manifest:
+            val_set = LinePairDataset(
+                images_dir=args.images_dir,
+                masks_dir=args.masks_dir,
+                size=(args.width, args.height),
+                manifest_path=args.val_manifest,
+            )
+            val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False)
+        else:
+            val_set = None
+            val_loader = None
+    else:
+        dataset = LinePairDataset(
+            images_dir=args.images_dir,
+            masks_dir=args.masks_dir,
+            size=(args.width, args.height),
+        )
 
-    # Split into train and validation subsets.
-    val_len = int(len(dataset) * args.val_split)
-    train_len = len(dataset) - val_len
-    train_set, val_set = random_split(dataset, [train_len, val_len])
+        # Split into train and validation subsets.
+        val_len = int(len(dataset) * args.val_split)
+        train_len = len(dataset) - val_len
+        train_set, val_set = random_split(dataset, [train_len, val_len])
+        val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False) if val_len > 0 else None
 
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
-    val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False) if val_len > 0 else None
 
     model = TinyUNet().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)

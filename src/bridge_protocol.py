@@ -10,6 +10,11 @@ We keep this protocol deliberately small:
 - PING
 
 The robot-side bridge only needs to understand these commands.
+
+Memory note:
+- this command vocabulary is shared by the planner, calibration generator,
+  bridge sender, and mBlock receivers
+- extend it carefully and update all consumers together
 """
 
 from __future__ import annotations
@@ -65,6 +70,29 @@ def load_plot_commands(path: str) -> list[BridgeCommand]:
     """Load line-based plot commands from disk."""
     lines = Path(path).read_text(encoding="utf-8").splitlines()
     return [parse_plot_command_line(line) for line in lines if line.strip()]
+
+
+def bridge_command_to_line(cmd: BridgeCommand) -> str:
+    """Serialize one bridge command to the line-based text transport format."""
+    if cmd.cmd in {"PEN_UP", "PEN_DOWN", "START", "END", "PING"}:
+        return cmd.cmd
+
+    if cmd.cmd == "MOVE":
+        if cmd.x is None or cmd.y is None or cmd.speed is None:
+            raise ValueError("MOVE commands require x, y, and speed values")
+        return f"MOVE {cmd.x:.2f} {cmd.y:.2f} {cmd.speed:.2f}"
+
+    raise ValueError(f"Unsupported bridge command for text serialization: {cmd.cmd}")
+
+
+def bridge_commands_to_text(commands: list[BridgeCommand]) -> str:
+    """Serialize bridge commands into the project's line-based command file format."""
+    return "\n".join(bridge_command_to_line(cmd) for cmd in commands)
+
+
+def save_bridge_commands_as_text(commands: list[BridgeCommand], path: str) -> None:
+    """Write bridge commands to a line-based plot command file."""
+    Path(path).write_text(bridge_commands_to_text(commands), encoding="utf-8")
 
 
 def command_to_json(cmd: BridgeCommand) -> str:

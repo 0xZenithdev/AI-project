@@ -19,9 +19,11 @@ import cv2
 
 from src.search import (
     build_plot_commands,
+    cleanup_paths,
     commands_to_text,
-    order_paths_nearest_neighbor,
+    order_paths,
     scale_paths_to_mm,
+    summarize_ordered_paths,
 )
 from src.vision_v2 import get_drawing_paths_classical, get_drawing_paths_ml
 
@@ -65,6 +67,51 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--travel-speed", type=float, default=60.0, help="Pen-up speed")
     parser.add_argument("--draw-speed", type=float, default=35.0, help="Pen-down speed")
 
+    # Conservative path cleanup controls for drawing quality.
+    parser.add_argument(
+        "--min-path-length-mm",
+        type=float,
+        default=2.0,
+        help="Drop tiny paths shorter than this length after cleanup",
+    )
+    parser.add_argument(
+        "--min-segment-length-mm",
+        type=float,
+        default=0.75,
+        help="Collapse consecutive points that are closer than this distance",
+    )
+    parser.add_argument(
+        "--simplify-tolerance-mm",
+        type=float,
+        default=0.5,
+        help="Remove middle points that are nearly collinear within this tolerance",
+    )
+    parser.add_argument(
+        "--travel-move-threshold-mm",
+        type=float,
+        default=0.5,
+        help="Skip travel moves smaller than this threshold",
+    )
+    parser.add_argument(
+        "--draw-move-threshold-mm",
+        type=float,
+        default=0.5,
+        help="Skip draw moves smaller than this threshold",
+    )
+    parser.add_argument(
+        "--path-ordering",
+        type=str,
+        choices=["nearest_neighbor", "two_opt"],
+        default="two_opt",
+        help="Path planning strategy: greedy baseline or TSP-style 2-opt refinement",
+    )
+    parser.add_argument(
+        "--two-opt-max-passes",
+        type=int,
+        default=8,
+        help="Maximum refinement passes when --path-ordering two_opt",
+    )
+
     # Output controls.
     parser.add_argument("--output-dir", type=str, default="output", help="Output folder")
     parser.add_argument(
@@ -103,20 +150,38 @@ def run_pipeline(args: argparse.Namespace) -> dict:
         margin_mm=args.margin_mm,
     )
 
+    # 2b) Cleanup stage: reduce jittery geometry before ordering and command export.
+    cleaned_paths_mm, cleanup_stats = cleanup_paths(
+        paths_mm,
+        min_path_length_mm=args.min_path_length_mm,
+        min_segment_length_mm=args.min_segment_length_mm,
+        simplify_tolerance_mm=args.simplify_tolerance_mm,
+    )
+
     # 3) Search/planning stage: choose draw order to reduce travel.
-    ordered_paths = order_paths_nearest_neighbor(paths_mm)
+    ordered_paths = order_paths(
+        cleaned_paths_mm,
+        method=args.path_ordering,
+        two_opt_max_passes=args.two_opt_max_passes,
+    )
+    plan_metrics = summarize_ordered_paths(ordered_paths)
 
     # 4) Command stage: convert paths to pen commands.
     commands = build_plot_commands(
         ordered_paths=ordered_paths,
         travel_speed=args.travel_speed,
         draw_speed=args.draw_speed,
+        travel_move_threshold_mm=args.travel_move_threshold_mm,
+        draw_move_threshold_mm=args.draw_move_threshold_mm,
     )
 
     return {
         "edges": edges,
         "paths_px": paths_px,
+        "paths_mm_raw": paths_mm,
         "paths_mm": ordered_paths,
+        "cleanup_stats": cleanup_stats,
+        "plan_metrics": plan_metrics,
         "commands": commands,
     }
 
@@ -133,6 +198,28 @@ def export_outputs(args: argparse.Namespace, results: dict) -> None:
     # Save path metadata (counts + first few points) for inspection.
     paths_summary = {
         "vision_mode": args.vision_mode,
+        "path_ordering": args.path_ordering,
+        "cleanup": {
+            "min_path_length_mm": args.min_path_length_mm,
+            "min_segment_length_mm": args.min_segment_length_mm,
+            "simplify_tolerance_mm": args.simplify_tolerance_mm,
+            "travel_move_threshold_mm": args.travel_move_threshold_mm,
+            "draw_move_threshold_mm": args.draw_move_threshold_mm,
+        },
+        "plan_metrics": {
+            "path_count": results["plan_metrics"].path_count,
+            "draw_distance_mm": round(results["plan_metrics"].draw_distance_mm, 2),
+            "pen_up_distance_mm": round(results["plan_metrics"].pen_up_distance_mm, 2),
+            "total_distance_mm": round(results["plan_metrics"].total_distance_mm, 2),
+        },
+        "cleanup_stats": {
+            "input_paths": results["cleanup_stats"].input_paths,
+            "output_paths": results["cleanup_stats"].output_paths,
+            "input_points": results["cleanup_stats"].input_points,
+            "output_points": results["cleanup_stats"].output_points,
+            "dropped_paths": results["cleanup_stats"].dropped_paths,
+            "dropped_points": results["cleanup_stats"].dropped_points,
+        },
         "num_paths": len(results["paths_mm"]),
         "num_commands": len(results["commands"]),
         "sample_path_first_points": [
@@ -154,7 +241,20 @@ def main() -> None:
     # Print concise runtime summary for terminal use.
     print(f"Input image: {args.image}")
     print(f"Vision mode: {args.vision_mode}")
+    print(f"Path ordering: {args.path_ordering}")
     print(f"Detected paths: {len(results['paths_px'])}")
+    print(
+        "Cleanup stats: "
+        f"{results['cleanup_stats'].input_points} pts -> "
+        f"{results['cleanup_stats'].output_points} pts, "
+        f"{results['cleanup_stats'].input_paths} paths -> "
+        f"{results['cleanup_stats'].output_paths} paths"
+    )
+    print(
+        "Plan metrics: "
+        f"pen-up={results['plan_metrics'].pen_up_distance_mm:.2f} mm, "
+        f"draw={results['plan_metrics'].draw_distance_mm:.2f} mm"
+    )
     print(f"Generated commands: {len(results['commands'])}")
 
     if args.no_export:

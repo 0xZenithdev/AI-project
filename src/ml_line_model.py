@@ -22,6 +22,11 @@ import torch
 from torch import nn
 from torch.utils.data import Dataset
 
+from src.ml_dataset_utils import (
+    load_manifest_pairs,
+    match_image_mask_pairs,
+)
+
 
 @dataclass
 class ModelConfig:
@@ -81,10 +86,18 @@ class TinyUNet(nn.Module):
         b = self.bottleneck(self.pool2(e2))
 
         d2 = self.up2(b)
+        if d2.shape[-2:] != e2.shape[-2:]:
+            # Memory note:
+            # - default training size 210x297 is not divisible by 4
+            # - resize decoder maps to the skip-connection shape so the model
+            #   works with the repo's paper-oriented default dimensions
+            d2 = nn.functional.interpolate(d2, size=e2.shape[-2:], mode="bilinear", align_corners=False)
         d2 = torch.cat([d2, e2], dim=1)
         d2 = self.dec2(d2)
 
         d1 = self.up1(d2)
+        if d1.shape[-2:] != e1.shape[-2:]:
+            d1 = nn.functional.interpolate(d1, size=e1.shape[-2:], mode="bilinear", align_corners=False)
         d1 = torch.cat([d1, e1], dim=1)
         d1 = self.dec1(d1)
 
@@ -107,10 +120,12 @@ class LinePairDataset(Dataset):
         images_dir: str,
         masks_dir: str,
         size: Tuple[int, int] = (210, 297),
+        manifest_path: str = "",
     ) -> None:
         self.images_dir = Path(images_dir)
         self.masks_dir = Path(masks_dir)
         self.width, self.height = size
+        self.manifest_path = manifest_path
 
         self.samples = self._match_pairs()
         if len(self.samples) == 0:
@@ -120,15 +135,10 @@ class LinePairDataset(Dataset):
             )
 
     def _match_pairs(self) -> List[Tuple[Path, Path]]:
-        pairs: List[Tuple[Path, Path]] = []
-        mask_by_stem = {p.stem: p for p in self.masks_dir.glob("*") if p.is_file()}
-
-        for img_path in self.images_dir.glob("*"):
-            if not img_path.is_file():
-                continue
-            mask_path = mask_by_stem.get(img_path.stem)
-            if mask_path is not None:
-                pairs.append((img_path, mask_path))
+        if self.manifest_path:
+            pairs = load_manifest_pairs(Path(self.manifest_path))
+        else:
+            pairs, _, _ = match_image_mask_pairs(images_dir=self.images_dir, masks_dir=self.masks_dir)
 
         return sorted(pairs, key=lambda x: x[0].name)
 

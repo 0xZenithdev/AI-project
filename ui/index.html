@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Robot Drawing Studio</title>
+  <style>
+    :root{--bg:#f6f4ef;--panel:#ffffffd9;--line:#22303d1c;--ink:#1f2b36;--soft:#62707d;--blue:#35607f;--blueSoft:#eaf1f6;--warm:#b7724c;--green:#2f6a46;--greenSoft:#ebf6ef;--shadow:0 18px 40px #17202b14;--mono:"Consolas","Lucida Console",monospace;--body:"Segoe UI","Aptos","Trebuchet MS",sans-serif;--display:"Cambria","Georgia",serif}
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;color:var(--ink);font-family:var(--body);background:radial-gradient(circle at top right,#35607f14,transparent 30%),linear-gradient(180deg,#faf8f3,#efede8)}
+    .shell{width:min(1460px,calc(100vw - 18px));margin:12px auto 24px;display:grid;gap:14px}
+    .hero,.card{background:var(--panel);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow)}
+    .hero{padding:22px 24px;display:grid;gap:12px}
+    .hero-top{display:flex;justify-content:space-between;gap:18px;align-items:start}
+    h1,h2,h3{margin:0;font-family:var(--display)} h1{font-size:clamp(2rem,4vw,3rem);line-height:.95;max-width:11ch} h2{font-size:1.35rem} h3{font-size:1rem}
+    p{margin:0;color:var(--soft);line-height:1.55} .badge,.step-label{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:8px 12px;width:max-content;font-weight:600}
+    .badge{background:var(--blueSoft);color:var(--blue);font-size:.9rem}.step-label{background:var(--blueSoft);color:var(--blue);font-size:.88rem;margin-bottom:8px}
+    .stepper{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .chip{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:18px;padding:12px;background:#ffffffb8}
+    .chip span{width:28px;height:28px;border-radius:999px;display:grid;place-items:center;border:1px solid #22303d2e;color:var(--soft);background:#fff;font-weight:700;font-size:.92rem;flex:0 0 auto}
+    .chip strong{display:block;font-size:.95rem}.chip small{display:block;color:var(--soft);font-size:.83rem;line-height:1.35}
+    .chip.current{background:var(--blueSoft);border-color:#35607f4d}.chip.current span{background:var(--blue);border-color:var(--blue);color:#fff}
+    .chip.done{background:var(--greenSoft);border-color:#2f6a463d}.chip.done span{background:var(--green);border-color:var(--green);color:#fff}.chip.locked{opacity:.6}
+    .wizard{display:grid;grid-template-columns:minmax(240px,280px) repeat(2,minmax(0,1fr));gap:14px;align-items:start}.card{padding:18px}.hidden{display:none}.head{display:grid;gap:6px;margin-bottom:14px}
+    .head-row{display:flex;justify-content:space-between;gap:12px;align-items:start}
+    .head-copy{display:grid;gap:6px}
+    .field,.grid{display:grid;gap:12px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    label{display:grid;gap:6px;font-size:.94rem} input,select,button{width:100%;font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:11px 13px;background:#fffffff2}
+    input:focus,select:focus{outline:2px solid #35607f2d;border-color:#35607f4d} input[type=file]{padding:9px} input[type=checkbox]{width:18px;height:18px;margin:0;padding:0}
+    button{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,opacity .12s ease} button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 12px 20px #17202b14} button:disabled{opacity:.58;cursor:not-allowed}
+    .primary{border:0;color:#fff;background:linear-gradient(135deg,#325c7b,#42708f)} .secondary{background:#fff} .warm{border:0;color:#fff;background:linear-gradient(135deg,var(--warm),#cf8860)}
+    .inline-check{display:flex;align-items:center;gap:10px;margin-top:10px;color:var(--soft);font-size:.94rem}.note{margin-top:10px;font-size:.92rem;color:var(--soft)}
+    .ok-note{display:none;margin-top:12px;padding:12px 14px;border-radius:16px;border:1px solid #2f6a462e;background:var(--greenSoft);color:var(--green);font-size:.94rem}
+    details{margin-top:12px;border-radius:16px;border:1px dashed #22303d26;background:#f5f4efcc;padding:12px 14px} summary{cursor:pointer;font-weight:600}
+    .frame{aspect-ratio:1.2/1;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:linear-gradient(180deg,#ffffffe8,#f1efe9eb),repeating-linear-gradient(0deg,#35607f08,#35607f08 22px,#0000 22px,#0000 23px);display:grid;place-items:center}
+    .frame img{display:none;width:100%;height:100%;object-fit:contain}.frame.has-image img{display:block}.placeholder{padding:18px;text-align:center;color:#62707de0;line-height:1.5;font-size:.94rem}
+    .results,.stats,.actions,.compare-grid,.thumb-row,.compare-metrics{display:grid;gap:12px}.results{grid-template-columns:repeat(3,minmax(0,1fr))}.stats{grid-template-columns:repeat(6,minmax(0,1fr));margin-top:14px}.actions{grid-template-columns:repeat(2,minmax(0,1fr))}.compare-grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-top:14px}.thumb-row{grid-template-columns:repeat(2,minmax(0,1fr))}.compare-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .mode-box{border-radius:20px;border:1px solid var(--line);background:#fbfaf7;padding:14px;display:grid;gap:12px}
+    .mode-head{display:flex;justify-content:space-between;gap:12px;align-items:start}
+    .mode-badge{border-radius:999px;padding:7px 10px;font-size:.82rem;font-weight:700;white-space:nowrap}
+    .mode-badge.recommended{background:var(--greenSoft);color:var(--green)}
+    .mode-badge.advanced{background:var(--blueSoft);color:var(--blue)}
+    .mode-badge.ai{background:#f3ede4;color:#7f5539}
+    .mode-copy{font-size:.92rem;color:var(--soft);line-height:1.5}
+    .stat,.files{border-radius:18px;border:1px solid var(--line);background:#fbfaf7;padding:13px}.stat strong{display:block;font-family:var(--display);font-size:1.35rem}.stat span{color:var(--soft);font-size:.9rem}
+    .files{display:grid;gap:8px;margin-top:14px}.files a{color:var(--blue);text-decoration:none;font-weight:600}.files a:hover{text-decoration:underline}.links{display:flex;gap:8px;flex-wrap:wrap}
+    .export-tools{margin-top:14px;display:grid;gap:10px}
+    .tiny{font-size:.9rem;color:var(--soft)}
+    .check-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+    .check-card{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:16px;background:#ffffffcc;padding:12px 14px;color:var(--ink)}
+    .check-card input[type=checkbox]{flex:0 0 auto}
+    .summary-box{border-radius:18px;border:1px solid var(--line);background:#f6f4ef;padding:14px;line-height:1.55;white-space:pre-wrap}
+    .compare-card{border-radius:20px;border:1px solid var(--line);background:#fff;padding:14px;display:grid;gap:12px}
+    .compare-card-head{display:flex;justify-content:space-between;gap:12px;align-items:start}
+    .thumb{aspect-ratio:1.2/1;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#efece4;display:grid;place-items:center;text-decoration:none}
+    .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+    .thumb span{font-size:.84rem;color:var(--soft);padding:10px;text-align:center}
+    .mini-metric{border-radius:16px;border:1px solid var(--line);background:#fbfaf7;padding:10px 12px}
+    .mini-metric strong{display:block;font-family:var(--display);font-size:1.1rem}
+    .mini-metric span{display:block;color:var(--soft);font-size:.84rem}
+    .code-box{display:none;margin-top:10px;border-radius:18px;border:1px solid #22303d2e;background:#1d2630f7;color:#edf2f7;padding:13px;font-family:var(--mono);font-size:.86rem;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto}
+    .status,.path-box{border-radius:18px;border:1px solid #22303d2e;background:#1d2630f7;color:#edf2f7;padding:13px;font-family:var(--mono);line-height:1.55;white-space:pre-wrap;word-break:break-word}
+    .status{min-height:150px;font-size:.9rem}.path-box{margin-top:14px;font-size:.88rem;min-height:76px}
+    #statusPanel{grid-column:1;grid-row:1/span 5;position:sticky;top:16px;align-self:start}
+    #step1Panel{grid-column:2} #step1Panel.wide{grid-column:2/4} #step2Panel{grid-column:3} #step3Panel,#step4Panel{grid-column:2/4}
+    #statusPanel .status{max-height:calc(100vh - 210px);overflow:auto}
+    .status-mini{display:none;border-radius:14px;border:1px solid var(--line);background:#fbfaf7;padding:12px 14px;color:var(--soft);font-size:.92rem;line-height:1.45}
+    .ghost-btn{width:auto;min-width:82px;padding:9px 12px;background:#fff}
+    #statusPanel.collapsed .status-body{display:none}
+    #statusPanel.collapsed .status-mini{display:block}
+    #statusPanel.collapsed{padding-bottom:16px}
+    @media (max-width:1180px){.shell{width:min(1240px,calc(100vw - 14px))}.wizard{grid-template-columns:minmax(220px,260px) minmax(0,1fr) minmax(0,1fr)}}
+    @media (max-width:860px){.shell{width:min(100vw - 12px,720px);margin:10px auto 18px}.hero-top,.stepper,.grid,.results,.stats,.actions,.wizard{grid-template-columns:1fr;display:grid}.hero-top{display:flex;flex-direction:column}#statusPanel,#step1Panel,#step1Panel.wide,#step2Panel,#step3Panel,#step4Panel{grid-column:1;grid-row:auto;position:static}.hero,.card{border-radius:20px}.hero{padding:18px}.card,.mode-box,.stat,.files,.status,.path-box,.code-box{padding:14px}#statusPanel .status{max-height:none}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <h1>Robot Drawing Studio</h1>
+          <p>Guided flow for the real work: choose an image, generate AI pipeline output, review it, then optionally send or export.</p>
+        </div>
+        <div class="badge">Progressive disclosure</div>
+      </div>
+      <div class="stepper">
+        <div class="chip current" data-chip="1"><span>1</span><div><strong>Choose image</strong><small>Start with one file</small></div></div>
+        <div class="chip locked" data-chip="2"><span>2</span><div><strong>Generate</strong><small>Run the pipeline</small></div></div>
+        <div class="chip locked" data-chip="3"><span>3</span><div><strong>Review</strong><small>Check previews first</small></div></div>
+        <div class="chip locked" data-chip="4"><span>4</span><div><strong>Compare / output</strong><small>AI lab, send, export</small></div></div>
+      </div>
+    </section>
+
+    <section class="wizard">
+      <section class="card" id="step1Panel">
+        <div class="step-label">Step 1</div>
+        <div class="head">
+          <h2>Choose an image</h2>
+          <p>Pick one image from your computer. When that is done, the next step will appear automatically.</p>
+        </div>
+        <div class="field">
+          <label for="imageFile">Image file</label>
+          <input id="imageFile" type="file" accept="image/*">
+        </div>
+        <div id="selectionNote" class="ok-note"></div>
+        <div class="frame" id="originalFrame" style="margin-top:14px;">
+          <img id="originalPreview" alt="Original image preview">
+          <div class="placeholder">The original image preview will appear here after you choose a file.</div>
+        </div>
+      </section>
+
+      <section class="card hidden" id="step2Panel">
+        <div class="step-label">Step 2</div>
+        <div class="head">
+          <h2>Generate preview and commands</h2>
+          <p>Keep this simple by default. Open the advanced settings only if you are tuning the robot or switching to ML mode.</p>
+        </div>
+        <div class="grid">
+          <label>Vision mode
+            <select id="visionMode">
+              <option value="classical">classical</option>
+              <option value="ml">ml</option>
+            </select>
+          </label>
+          <label id="mlCheckpointField" class="hidden">ML checkpoint
+            <input id="modelCheckpoint" type="text" placeholder="models/line_model.pt">
+          </label>
+        </div>
+        <button id="generateBtn" class="primary" style="margin-top:14px;">Generate Preview And Commands</button>
+        <p class="note">Recommended: stay in <code>classical</code> mode unless you already have a trained ML checkpoint.</p>
+        <details>
+          <summary>Paper and speed settings</summary>
+          <div class="grid" style="margin-top:12px;">
+            <label>Paper width mm<input id="paperWidthMm" type="number" value="210" step="1"></label>
+            <label>Paper height mm<input id="paperHeightMm" type="number" value="297" step="1"></label>
+            <label>Margin mm<input id="marginMm" type="number" value="10" step="0.5"></label>
+            <label>ML threshold<input id="mlThreshold" type="number" value="0.5" min="0" max="1" step="0.05"></label>
+            <label>Travel speed<input id="travelSpeed" type="number" value="60" step="1"></label>
+            <label>Draw speed<input id="drawSpeed" type="number" value="35" step="1"></label>
+            <label>ML device<input id="mlDevice" type="text" value="cpu"></label>
+          </div>
+        </details>
+        <details>
+          <summary>Cleanup settings</summary>
+          <div class="grid" style="margin-top:12px;">
+            <label>Min path length mm<input id="minPathLengthMm" type="number" value="2.0" step="0.1"></label>
+            <label>Min segment length mm<input id="minSegmentLengthMm" type="number" value="0.75" step="0.05"></label>
+            <label>Simplify tolerance mm<input id="simplifyToleranceMm" type="number" value="0.5" step="0.05"></label>
+            <label>Travel threshold mm<input id="travelMoveThresholdMm" type="number" value="0.5" step="0.05"></label>
+            <label>Draw threshold mm<input id="drawMoveThresholdMm" type="number" value="0.5" step="0.05"></label>
+          </div>
+        </details>
+      </section>
+
+      <section class="card hidden" id="step3Panel">
+        <div class="step-label">Step 3</div>
+        <div class="head">
+          <h2>Review the output</h2>
+          <p>Check this before thinking about the robot. If the previews look wrong here, the robot result will look wrong too.</p>
+        </div>
+        <div class="results">
+          <article><h3>Original</h3><div class="frame" id="reviewOriginalFrame"><img id="reviewOriginalPreview" alt="Original review preview"><div class="placeholder">Original image preview.</div></div></article>
+          <article><h3>Detected lines</h3><div class="frame" id="edgesFrame"><img id="edgesPreview" alt="Detected edges or mask preview"><div class="placeholder">The extracted edge map or ML mask appears here after generation.</div></div></article>
+          <article><h3>Planned drawing</h3><div class="frame" id="pathsFrame"><img id="pathsPreview" alt="Planned path preview"><div class="placeholder">The robot-friendly drawing path preview appears here after generation.</div></div></article>
+        </div>
+        <div class="stats">
+          <div class="stat"><strong id="metricCommands">0</strong><span>Commands</span></div>
+          <div class="stat"><strong id="metricPaths">0</strong><span>Paths</span></div>
+          <div class="stat"><strong id="metricInputPoints">0</strong><span>Input points</span></div>
+          <div class="stat"><strong id="metricOutputPoints">0</strong><span>Output points</span></div>
+          <div class="stat"><strong id="metricPenUpDistance">0</strong><span>Pen-up mm</span></div>
+          <div class="stat"><strong id="metricDrawDistance">0</strong><span>Draw mm</span></div>
+        </div>
+        <div class="files">
+          <div><strong>Generated command file</strong></div>
+          <div id="commandsPath">Nothing generated yet.</div>
+          <div class="links hidden" id="resultLinks">
+            <a id="commandsLink" href="#" target="_blank" rel="noreferrer">Open command file</a>
+            <a id="summaryLink" href="#" target="_blank" rel="noreferrer">Open summary</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="card hidden" id="step4Panel">
+        <div class="step-label">Step 4</div>
+        <div class="head">
+          <h2>Compare or test</h2>
+          <p>Use the AI lab to compare methods on the same image, then optionally send or export the result you want to test.</p>
+        </div>
+        <div class="mode-box">
+          <div class="mode-head">
+            <div>
+              <h3>AI Experiment Lab</h3>
+              <p class="mode-copy">Compare planning and perception variants on the same uploaded image so the AI part of the project is measurable, not just visual.</p>
+            </div>
+            <div class="mode-badge ai">AI lab</div>
+          </div>
+          <div class="check-grid">
+            <label class="check-card"><input id="compareClassical" type="checkbox" checked>Include classical vision</label>
+            <label class="check-card"><input id="compareMl" type="checkbox">Include ML vision</label>
+            <label class="check-card"><input id="compareNearest" type="checkbox" checked>Include nearest-neighbor planning</label>
+            <label class="check-card"><input id="compareTwoOpt" type="checkbox" checked>Include two-opt planning</label>
+          </div>
+          <div class="grid">
+            <label>Optional ground-truth mask
+              <input id="groundTruthMaskFile" type="file" accept="image/*">
+            </label>
+            <label>Optional note
+              <input id="experimentNote" type="text" placeholder="e.g. logo subset, draft mask, paper test">
+            </label>
+          </div>
+          <div id="maskSelectionNote" class="ok-note"></div>
+          <button id="compareBtn" class="primary" style="margin-top:4px;" disabled>Run AI Comparison</button>
+          <p class="tiny">To compare classical vs ML, provide a checkpoint in Step 2 and check <code>Include ML vision</code>. Upload a mask here only if you want Dice/IoU metrics.</p>
+          <div class="summary-box" id="experimentSummaryBox">No comparison has been run yet.</div>
+          <div class="compare-grid hidden" id="experimentResults"></div>
+        </div>
+        <div class="actions">
+          <div class="mode-box">
+            <div class="mode-head">
+              <div>
+                <h3>Manual mBlock Paste Mode</h3>
+                <p class="mode-copy">Best for first testing. Export the generated Python, open it, then copy and paste it into mBlock manually.</p>
+              </div>
+              <div class="mode-badge recommended">Recommended first</div>
+            </div>
+            <div class="grid">
+              <label>Base filename<input id="baseName" type="text" value="ui_draw_job"></label>
+              <label>Servo port<select id="servoPort"><option value="S1">S1</option><option value="S2">S2</option><option value="S3">S3</option><option value="S4">S4</option></select></label>
+              <label>mm per straight unit<input id="mmPerStraightUnit" type="number" value="10" step="0.1"></label>
+              <label>Turn scale<input id="turnScale" type="number" value="1.0" step="0.01"></label>
+              <label>Pen lift delta<input id="penLiftDelta" type="number" value="60" step="1"></label>
+              <label>Pen delay s<input id="penDelayS" type="number" value="0.3" step="0.05"></label>
+              <label>Turn delay s<input id="turnDelayS" type="number" value="0.1" step="0.05"></label>
+            </div>
+            <label class="inline-check"><input id="usePen" type="checkbox">Include pen servo actions</label>
+            <button id="exportBtn" class="warm" style="margin-top:4px;" disabled>Prepare Manual Test Files (.py + .mcode)</button>
+            <div class="export-tools hidden" id="exportTools">
+              <p class="tiny">Use this when you want to avoid live send and just paste the generated Python into mBlock for testing.</p>
+              <div class="links">
+                <a id="openPythonLink" href="#" target="_blank" rel="noreferrer">Open Python script</a>
+                <a id="openMcodeLink" href="#" target="_blank" rel="noreferrer">Open .mcode file</a>
+              </div>
+              <div class="links">
+                <button id="showPythonBtn" type="button" class="secondary">Show Python for copy/paste</button>
+                <button id="copyPythonBtn" type="button" class="secondary">Copy Python</button>
+              </div>
+              <div class="code-box" id="pythonPreviewBox">No Python export loaded yet.</div>
+            </div>
+            <div class="path-box" id="latestExportBox">No export yet.</div>
+          </div>
+
+          <div class="mode-box">
+            <div class="mode-head">
+              <div>
+                <h3>Automatic Live Bridge Mode</h3>
+                <p class="mode-copy">More automatic, but more complex. Use this to send commands directly through the live bridge after the receiver is running in mBlock.</p>
+              </div>
+              <div class="mode-badge advanced">Advanced</div>
+            </div>
+            <div class="grid" style="margin-top:12px;">
+              <label>Send mode<select id="sendMode"><option value="socket">socket</option><option value="file">file</option></select></label>
+              <label>Host<input id="host" type="text" value="127.0.0.1"></label>
+              <label>Port<input id="port" type="number" value="8765" step="1"></label>
+              <label>Delay ms<input id="delayMs" type="number" value="20" step="1"></label>
+              <label>Connect attempts<input id="connectAttempts" type="number" value="20" step="1"></label>
+              <label>Retry delay ms<input id="retryDelayMs" type="number" value="500" step="50"></label>
+              <label style="grid-column:1/-1;">File-mode outbox<input id="outbox" type="text" value="output/bridge_commands.jsonl"></label>
+            </div>
+            <label class="inline-check"><input id="prependPing" type="checkbox" checked>Prepend diagnostic PING</label>
+            <button id="sendBtn" class="secondary" style="margin-top:4px;" disabled>Send Through Live Bridge</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="statusPanel">
+        <div class="head head-row">
+          <div class="head-copy">
+            <h2>Status</h2>
+            <p>Sticky on desktop so you can keep the run log visible while working through the steps.</p>
+          </div>
+          <button id="toggleStatusBtn" type="button" class="ghost-btn">Close</button>
+        </div>
+        <div id="statusMini" class="status-mini">Current step: 1 - Choose image</div>
+        <div class="status-body">
+          <div id="statusLog" class="status">UI ready.
+1. Choose an image.
+2. Generate preview and commands.
+3. Review the output.
+4. Compare methods, then send or export only if you want.</div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const state={imageDataUrl:"",filename:"",imagePath:"",commandsPath:"",sessionId:"",selectedImage:false,generated:false,maskDataUrl:"",maskFilename:"",experimented:false};
+    const $=(id)=>document.getElementById(id);
+    const statusLog=$("statusLog"),selectionNote=$("selectionNote"),generateBtn=$("generateBtn"),sendBtn=$("sendBtn"),exportBtn=$("exportBtn"),compareBtn=$("compareBtn"),latestExportBox=$("latestExportBox");
+    const exportTools=$("exportTools"),pythonPreviewBox=$("pythonPreviewBox"),showPythonBtn=$("showPythonBtn"),copyPythonBtn=$("copyPythonBtn");
+    const statusPanel=$("statusPanel"),toggleStatusBtn=$("toggleStatusBtn"),statusMini=$("statusMini");
+    const experimentSummaryBox=$("experimentSummaryBox"),experimentResults=$("experimentResults"),maskSelectionNote=$("maskSelectionNote");
+
+    const show=(node,on)=>node.classList.toggle("hidden",!on);
+    const setStatus=(text)=>statusLog.textContent=text;
+    const appendStatus=(text)=>statusLog.textContent+=`\n${text}`;
+    const scrollToNode=(node)=>node.scrollIntoView({behavior:"smooth",block:"start"});
+
+    function setPreview(frameId,imgId,src,alt){
+      const frame=$(frameId),img=$(imgId),placeholder=frame.querySelector(".placeholder");
+      img.src=src; img.alt=alt; frame.classList.add("has-image"); if(placeholder) placeholder.style.display="none";
+    }
+
+    function syncVisionMode(){ show($("mlCheckpointField"), $("visionMode").value==="ml"); }
+
+    function getCurrentStepInfo(){
+      if(!state.selectedImage) return { step: 1, label: "Choose image" };
+      if(!state.generated) return { step: 2, label: "Generate" };
+      return { step: 4, label: "Compare / output" };
+    }
+
+    function updateStepper(){
+      document.querySelectorAll("[data-chip]").forEach((chip)=>{
+        const step=Number(chip.dataset.chip); chip.classList.remove("current","done","locked");
+        if(step===1){ chip.classList.add(state.selectedImage?"done":"current"); return; }
+        if(step===2){ chip.classList.add(!state.selectedImage?"locked":state.generated?"done":"current"); return; }
+        if(step===3){ chip.classList.add(state.generated?"done":"locked"); return; }
+        if(step===4){ chip.classList.add(state.generated?"current":"locked"); }
+      });
+    }
+
+    function refreshFlow(){
+      show($("step2Panel"),state.selectedImage);
+      show($("step3Panel"),state.generated);
+      show($("step4Panel"),state.generated);
+      $("step1Panel").classList.toggle("wide", !state.selectedImage);
+      compareBtn.disabled=!state.generated;
+      const stepInfo=getCurrentStepInfo();
+      statusMini.textContent=`Current step: ${stepInfo.step} - ${stepInfo.label}`;
+      updateStepper();
+    }
+
+    function collectOptions(){
+      return {
+        vision_mode:$("visionMode").value,model_checkpoint:$("modelCheckpoint").value.trim(),
+        paper_width_mm:Number($("paperWidthMm").value),paper_height_mm:Number($("paperHeightMm").value),
+        margin_mm:Number($("marginMm").value),ml_threshold:Number($("mlThreshold").value),
+        ml_device:$("mlDevice").value.trim()||"cpu",travel_speed:Number($("travelSpeed").value),
+        draw_speed:Number($("drawSpeed").value),min_path_length_mm:Number($("minPathLengthMm").value),
+        min_segment_length_mm:Number($("minSegmentLengthMm").value),simplify_tolerance_mm:Number($("simplifyToleranceMm").value),
+        travel_move_threshold_mm:Number($("travelMoveThresholdMm").value),draw_move_threshold_mm:Number($("drawMoveThresholdMm").value),
+        path_ordering:"two_opt",
+      };
+    }
+
+    function collectExperimentPayload(){
+      const visionModes=[]; const pathOrderings=[];
+      if($("compareClassical").checked) visionModes.push("classical");
+      if($("compareMl").checked) visionModes.push("ml");
+      if($("compareNearest").checked) pathOrderings.push("nearest_neighbor");
+      if($("compareTwoOpt").checked) pathOrderings.push("two_opt");
+      return {
+        imagePath:state.imagePath,options:collectOptions(),visionModes,pathOrderings,
+        maskDataUrl:state.maskDataUrl,maskFilename:state.maskFilename,note:$("experimentNote").value.trim()
+      };
+    }
+
+    function formatMaybe(value,digits=2){
+      if(value===null || value===undefined || value==="") return "n/a";
+      return typeof value==="number" ? value.toFixed(digits) : String(value);
+    }
+
+    function renderExperimentSummary(summary,runs){
+      const lines=[];
+      if(runs.length){
+        const bestPenRun=[...runs].sort((a,b)=>a.penUpDistanceMm-b.penUpDistanceMm)[0];
+        lines.push(`Best pen-up route: ${bestPenRun.visionMode} + ${bestPenRun.pathOrdering} (${formatMaybe(bestPenRun.penUpDistanceMm)} mm)`);
+      }
+      if(summary.planning_comparisons?.length){
+        for(const item of summary.planning_comparisons){
+          lines.push(`Planning: ${item.image} with ${item.vision_mode} improved by ${formatMaybe(item.pen_up_improvement_mm)} mm (${formatMaybe(item.pen_up_improvement_pct)}%).`);
+        }
+      }
+      if(summary.vision_comparisons?.length){
+        for(const item of summary.vision_comparisons){
+          const diceDelta=item.mask_dice_delta===null||item.mask_dice_delta===undefined?"n/a":item.mask_dice_delta;
+          lines.push(`Perception: ${item.image} with ${item.path_ordering} has ML-classical Dice delta ${diceDelta}.`);
+        }
+      }
+      if(!summary.vision_comparisons?.length && !summary.planning_comparisons?.length){
+        lines.push("Comparison complete. Add more variants or a ground-truth mask for richer metrics.");
+      }
+      experimentSummaryBox.textContent=lines.join("\n");
+    }
+
+    function renderExperimentRuns(runs){
+      experimentResults.innerHTML=runs.map((run)=>{
+        const stamp=`?t=${Date.now()}_${run.label}`;
+        const dice=run.maskMetrics?.dice;
+        const iou=run.maskMetrics?.iou;
+        return `
+          <article class="compare-card">
+            <div class="compare-card-head">
+              <div>
+                <h3>${run.visionMode} + ${run.pathOrdering}</h3>
+                <p class="tiny">Commands ${run.numCommands} | Paths ${run.numPaths}</p>
+              </div>
+              <div class="mode-badge ${run.pathOrdering==="two_opt" ? "advanced" : "recommended"}">${run.pathOrdering==="two_opt" ? "optimized" : "baseline"}</div>
+            </div>
+            <div class="thumb-row">
+              <a class="thumb" href="${run.files.edgesPreviewUrl}" target="_blank" rel="noreferrer">
+                <img src="${run.files.edgesPreviewUrl+stamp}" alt="Detected lines preview for ${run.label}">
+              </a>
+              <a class="thumb" href="${run.files.pathPreviewUrl}" target="_blank" rel="noreferrer">
+                <img src="${run.files.pathPreviewUrl+stamp}" alt="Planned path preview for ${run.label}">
+              </a>
+            </div>
+            <div class="compare-metrics">
+              <div class="mini-metric"><strong>${run.numCommands}</strong><span>Commands</span></div>
+              <div class="mini-metric"><strong>${run.numPaths}</strong><span>Paths</span></div>
+              <div class="mini-metric"><strong>${formatMaybe(run.penUpDistanceMm)}</strong><span>Pen-up mm</span></div>
+              <div class="mini-metric"><strong>${formatMaybe(run.drawDistanceMm)}</strong><span>Draw mm</span></div>
+              <div class="mini-metric"><strong>${dice===null||dice===undefined?"n/a":Number(dice).toFixed(4)}</strong><span>Mask Dice</span></div>
+              <div class="mini-metric"><strong>${iou===null||iou===undefined?"n/a":Number(iou).toFixed(4)}</strong><span>Mask IoU</span></div>
+            </div>
+          </article>
+        `;
+      }).join("");
+      show(experimentResults, runs.length>0);
+    }
+
+    async function postJson(url,payload){
+      const response=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const data=await response.json();
+      if(!response.ok||!data.ok) throw new Error(data.error||`Request failed: ${response.status}`);
+      return data.result;
+    }
+
+    async function loadExportedPythonText(){
+      const pythonUrl=$("openPythonLink").getAttribute("href");
+      if(!pythonUrl || pythonUrl==="#") throw new Error("No exported Python file is available yet.");
+      const response=await fetch(pythonUrl);
+      if(!response.ok) throw new Error(`Could not load exported Python: ${response.status}`);
+      return await response.text();
+    }
+
+    $("visionMode").addEventListener("change",syncVisionMode);
+    toggleStatusBtn.addEventListener("click",()=>{
+      const collapsed=statusPanel.classList.toggle("collapsed");
+      toggleStatusBtn.textContent=collapsed?"Open":"Close";
+    });
+
+    $("imageFile").addEventListener("change",(event)=>{
+      const file=event.target.files?.[0]; if(!file) return;
+      state.filename=file.name; state.selectedImage=true; state.generated=false; state.experimented=false; state.imagePath=""; state.commandsPath="";
+      experimentSummaryBox.textContent="No comparison has been run yet.";
+      experimentResults.innerHTML="";
+      show(experimentResults,false);
+      const reader=new FileReader();
+      reader.onload=()=>{
+        state.imageDataUrl=String(reader.result||"");
+        setPreview("originalFrame","originalPreview",state.imageDataUrl,"Original uploaded image");
+        setPreview("reviewOriginalFrame","reviewOriginalPreview",state.imageDataUrl,"Original review preview");
+        selectionNote.textContent=`Image selected: ${state.filename}. Step 2 is ready.`;
+        selectionNote.style.display="block";
+        refreshFlow();
+        appendStatus(`Selected image: ${state.filename}`);
+        scrollToNode($("step2Panel"));
+      };
+      reader.readAsDataURL(file);
+    });
+
+    $("groundTruthMaskFile").addEventListener("change",(event)=>{
+      const file=event.target.files?.[0];
+      if(!file){
+        state.maskDataUrl=""; state.maskFilename=""; maskSelectionNote.style.display="none";
+        return;
+      }
+      state.maskFilename=file.name;
+      const reader=new FileReader();
+      reader.onload=()=>{
+        state.maskDataUrl=String(reader.result||"");
+        maskSelectionNote.textContent=`Ground-truth mask selected: ${state.maskFilename}`;
+        maskSelectionNote.style.display="block";
+        appendStatus(`Selected experiment mask: ${state.maskFilename}`);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    generateBtn.addEventListener("click",async()=>{
+      if(!state.imageDataUrl){ setStatus("Choose an image first."); return; }
+      generateBtn.disabled=true; sendBtn.disabled=true; exportBtn.disabled=true; setStatus("Generating previews and commands...");
+      try{
+        const result=await postJson("/api/process",{filename:state.filename,imageDataUrl:state.imageDataUrl,options:collectOptions()});
+        state.commandsPath=result.commandsPath; state.sessionId=result.sessionId; state.generated=true; state.experimented=false; state.imagePath=result.imagePath;
+        const stamp=`?t=${Date.now()}`;
+        setPreview("edgesFrame","edgesPreview",result.files.edgesPreviewUrl+stamp,"Detected lines preview");
+        setPreview("pathsFrame","pathsPreview",result.files.pathPreviewUrl+stamp,"Planned drawing preview");
+        $("metricCommands").textContent=String(result.numCommands); $("metricPaths").textContent=String(result.numPaths);
+        $("metricInputPoints").textContent=String(result.cleanupStats.inputPoints); $("metricOutputPoints").textContent=String(result.cleanupStats.outputPoints);
+        $("metricPenUpDistance").textContent=String(result.planMetrics.penUpDistanceMm); $("metricDrawDistance").textContent=String(result.planMetrics.drawDistanceMm);
+        $("commandsPath").textContent=result.commandsPath; $("commandsLink").href=result.files.commandsUrl; $("summaryLink").href=result.files.summaryUrl;
+        show($("resultLinks"),true); sendBtn.disabled=false; exportBtn.disabled=false; latestExportBox.textContent="No export yet.";
+        show(exportTools,false);
+        pythonPreviewBox.style.display="none";
+        pythonPreviewBox.textContent="No Python export loaded yet.";
+        $("openPythonLink").href="#";
+        $("openMcodeLink").href="#";
+        experimentSummaryBox.textContent="No comparison has been run yet.";
+        experimentResults.innerHTML="";
+        show(experimentResults,false);
+        refreshFlow();
+        setStatus(["Generation complete.",`Session: ${result.sessionId}`,`Commands: ${result.numCommands}`,`Paths: ${result.numPaths}`,`Pen-up mm: ${result.planMetrics.penUpDistanceMm}`,`Command file: ${result.commandsPath}`].join("\n"));
+        scrollToNode($("step3Panel"));
+      }catch(error){ setStatus(`Generation failed.\n${error.message}`); }
+      finally{ generateBtn.disabled=false; }
+    });
+
+    compareBtn.addEventListener("click",async()=>{
+      if(!state.generated || !state.imagePath){ setStatus("Generate commands first."); return; }
+      const payload=collectExperimentPayload();
+      if(!payload.visionModes.length){ appendStatus("Comparison needs at least one vision mode."); return; }
+      if(!payload.pathOrderings.length){ appendStatus("Comparison needs at least one planning mode."); return; }
+      compareBtn.disabled=true; appendStatus("Running AI comparison...");
+      try{
+        const result=await postJson("/api/compare",payload);
+        state.experimented=true;
+        renderExperimentSummary(result.summary,result.runs);
+        renderExperimentRuns(result.runs);
+        appendStatus(`Comparison complete.\nRuns: ${result.runs.length}\nExperiment folder: ${result.experimentDir}`);
+        scrollToNode(experimentSummaryBox);
+      }catch(error){ appendStatus(`Comparison failed.\n${error.message}`); }
+      finally{ compareBtn.disabled=false; }
+    });
+
+    sendBtn.addEventListener("click",async()=>{
+      if(!state.commandsPath){ setStatus("Generate commands first."); return; }
+      sendBtn.disabled=true; appendStatus("Sending latest commands...");
+      try{
+        const result=await postJson("/api/send",{
+          commandsPath:state.commandsPath,mode:$("sendMode").value,host:$("host").value.trim()||"127.0.0.1",port:Number($("port").value),
+          delayMs:Number($("delayMs").value),connectAttempts:Number($("connectAttempts").value),retryDelayMs:Number($("retryDelayMs").value),
+          prependPing:$("prependPing").checked,outbox:$("outbox").value.trim()||"output/bridge_commands.jsonl"
+        });
+        appendStatus(`${result.message}\nDestination: ${result.destination}\n${result.commandSummary}`);
+      }catch(error){ appendStatus(`Send failed.\n${error.message}`); }
+      finally{ sendBtn.disabled=false; }
+    });
+
+    exportBtn.addEventListener("click",async()=>{
+      if(!state.commandsPath){ setStatus("Generate commands first."); return; }
+      exportBtn.disabled=true; appendStatus("Exporting Python and .mcode...");
+      try{
+        const result=await postJson("/api/export-mcode",{
+          commandsPath:state.commandsPath,baseName:$("baseName").value.trim()||"ui_draw_job",usePen:$("usePen").checked,servoPort:$("servoPort").value,
+          mmPerStraightUnit:Number($("mmPerStraightUnit").value),turnScale:Number($("turnScale").value),penLiftDelta:Number($("penLiftDelta").value),
+          penDelayS:Number($("penDelayS").value),turnDelayS:Number($("turnDelayS").value)
+        });
+        latestExportBox.textContent=`Python: ${result.pythonPath}\nMcode: ${result.mcodePath}`;
+        $("openPythonLink").href=result.files.pythonUrl;
+        $("openMcodeLink").href=result.files.mcodeUrl;
+        show(exportTools,true);
+        pythonPreviewBox.style.display="none";
+        pythonPreviewBox.textContent="No Python export loaded yet.";
+        appendStatus(`${result.message}\nPython: ${result.pythonPath}\nMcode: ${result.mcodePath}`);
+      }catch(error){ appendStatus(`Export failed.\n${error.message}`); }
+      finally{ exportBtn.disabled=false; }
+    });
+
+    showPythonBtn.addEventListener("click",async()=>{
+      try{
+        showPythonBtn.disabled=true;
+        const scriptText=await loadExportedPythonText();
+        pythonPreviewBox.textContent=scriptText;
+        pythonPreviewBox.style.display="block";
+        appendStatus("Loaded exported Python into the copy/paste preview.");
+      }catch(error){ appendStatus(`Could not load Python preview.\n${error.message}`); }
+      finally{ showPythonBtn.disabled=false; }
+    });
+
+    copyPythonBtn.addEventListener("click",async()=>{
+      try{
+        copyPythonBtn.disabled=true;
+        const scriptText=await loadExportedPythonText();
+        await navigator.clipboard.writeText(scriptText);
+        pythonPreviewBox.textContent=scriptText;
+        pythonPreviewBox.style.display="block";
+        appendStatus("Copied exported Python to the clipboard.");
+      }catch(error){ appendStatus(`Could not copy Python.\n${error.message}`); }
+      finally{ copyPythonBtn.disabled=false; }
+    });
+
+    syncVisionMode();
+    refreshFlow();
+  </script>
+</body>
+</html>

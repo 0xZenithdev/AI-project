@@ -8,11 +8,16 @@ import time
 
 
 USE_PEN = False
+# Use the actual servo port wired to the pen lift: S1, S2, S3, or S4.
 SERVO_PORT = "S1"
-PEN_UP_ANGLE = 0
-PEN_DOWN_ANGLE = 90
+# Memory note: keep this test receiver aligned with the live receivers when
+# pen direction or calibration constants change.
+PEN_LIFT_DELTA = 60
 TURN_SIGN = 1.0
+TURN_SCALE = 1.0
 MM_PER_STRAIGHT_UNIT = 10.0
+PEN_DELAY_S = 1.0
+TURN_DELAY_S = 0.1
 
 # Coordinate-based square test:
 # this uses our bridge-style MOVE commands and should produce a 20 cm square
@@ -33,32 +38,39 @@ class RobotAdapter:
         self.current_x = 0.0
         self.current_y = 0.0
         self.heading_deg = 0.0
+        self.pen_is_down = False
 
     def reset_job(self):
         self.current_x = 0.0
         self.current_y = 0.0
         self.heading_deg = 0.0
-        if USE_PEN:
-            self.pen_up()
+        self.pen_is_down = False
+        mbot2.EM_stop("ALL")
         print("START")
 
     def finish_job(self):
-        if USE_PEN:
-            self.pen_up()
+        mbot2.EM_stop("ALL")
+        self.pen_up()
         print("END")
 
     def pen_up(self):
         if not USE_PEN:
             print("PEN_UP_SKIPPED")
             return
-        self._servo_to(PEN_UP_ANGLE)
+        if not self.pen_is_down:
+            return
+        self._servo_by(PEN_LIFT_DELTA)
+        self.pen_is_down = False
         print("PEN_UP")
 
     def pen_down(self):
         if not USE_PEN:
             print("PEN_DOWN_SKIPPED")
             return
-        self._servo_to(PEN_DOWN_ANGLE)
+        if self.pen_is_down:
+            return
+        self._servo_by(-PEN_LIFT_DELTA)
+        self.pen_is_down = True
         print("PEN_DOWN")
 
     def move_to(self, x, y, speed):
@@ -80,21 +92,18 @@ class RobotAdapter:
         self.current_y = y
         self.heading_deg = target_heading
 
-    def _servo_to(self, target_angle):
-        current_angle = mbot2.servo_get(SERVO_PORT)
-        delta = target_angle - current_angle
-        if delta != 0:
-            mbot2.servo_add(delta, SERVO_PORT)
-            time.sleep(0.3)
+    def _servo_by(self, delta_angle):
+        mbot2.servo_add(delta_angle, SERVO_PORT)
+        time.sleep(PEN_DELAY_S)
 
     def _turn_by(self, delta_deg):
         if abs(delta_deg) < 1.0:
             return
 
-        mbot2.turn(TURN_SIGN * delta_deg)
+        mbot2.turn(TURN_SIGN * TURN_SCALE * delta_deg)
 
         self.heading_deg = self._normalize_angle(self.heading_deg + delta_deg)
-        time.sleep(0.1)
+        time.sleep(TURN_DELAY_S)
 
     def _normalize_angle(self, angle_deg):
         while angle_deg <= -180:
@@ -115,6 +124,8 @@ def execute_command(robot, payload):
         robot.pen_up()
     elif cmd == "PEN_DOWN":
         robot.pen_down()
+    elif cmd == "PING":
+        print("PONG")
     elif cmd == "MOVE":
         robot.move_to(
             x=float(payload["x"]),
