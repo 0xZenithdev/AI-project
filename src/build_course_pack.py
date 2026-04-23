@@ -303,7 +303,7 @@ def write_slide_outline(path: Path, payload: dict, highlights: dict, experiment_
             f"- Show preview artifact: `{visual_path}`",
             "",
             "## Slide 7 - UI + Workflow",
-            "- Show the local UI wizard and AI Experiment Lab.",
+            "- Show the local UI wizard and the comparison workspace.",
             "- Explain that the same UI can export manual mBlock scripts or use the live bridge.",
             "",
             "## Slide 8 - Limitations and Next Steps",

@@ -1,7 +1,7 @@
 """
 Turn real-world calibration measurements into recommended bridge constants.
 
-Memory note:
+Implementation note:
 - PEN_LIFT_DELTA is intentionally left as a manual decision from the pen-gaps test
 - this tool only computes MM_PER_STRAIGHT_UNIT and TURN_SCALE from measurements
 

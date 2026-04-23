@@ -10,12 +10,13 @@ import time
 USE_PEN = False
 # Use the actual servo port wired to the pen lift: S1, S2, S3, or S4.
 SERVO_PORT = "S1"
-# Memory note: keep this test receiver aligned with the live receivers when
+# Keep this test receiver aligned with the live receivers when
 # pen direction or calibration constants change.
-PEN_LIFT_DELTA = 60
+PEN_LIFT_DELTA = 36
 TURN_SIGN = 1.0
-TURN_SCALE = 1.0
+TURN_SCALE = 1.04
 MM_PER_STRAIGHT_UNIT = 10.0
+CORNER_LIFT_TURN_DEG = 30.0
 PEN_DELAY_S = 1.0
 TURN_DELAY_S = 0.1
 
@@ -59,7 +60,7 @@ class RobotAdapter:
             return
         if not self.pen_is_down:
             return
-        self._servo_by(PEN_LIFT_DELTA)
+        self._servo_by(-PEN_LIFT_DELTA)
         self.pen_is_down = False
         print("PEN_UP")
 
@@ -69,7 +70,7 @@ class RobotAdapter:
             return
         if self.pen_is_down:
             return
-        self._servo_by(-PEN_LIFT_DELTA)
+        self._servo_by(+PEN_LIFT_DELTA)
         self.pen_is_down = True
         print("PEN_DOWN")
 
@@ -84,7 +85,15 @@ class RobotAdapter:
         target_heading = math.degrees(math.atan2(-dy, dx))
         turn_delta = self._normalize_angle(target_heading - self.heading_deg)
 
+        restore_pen_after_turn = USE_PEN and self.pen_is_down and abs(turn_delta) >= CORNER_LIFT_TURN_DEG
+        if restore_pen_after_turn:
+            self.pen_up()
+
         self._turn_by(turn_delta)
+
+        if restore_pen_after_turn:
+            self.pen_down()
+
         mbot2.straight(round(distance_mm / MM_PER_STRAIGHT_UNIT, 2))
         print("MOVE", x, y, speed)
 

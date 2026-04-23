@@ -45,7 +45,7 @@ def main() -> None:
     checkpoint_path = Path(args.checkpoint)
     audit = audit_dataset(images_dir=images_dir, masks_dir=masks_dir)
 
-    # Memory note:
+    # Interpretation:
     # - "code_ready" means the ML path exists in the repo structure
     # - "training_ready" requires at least one matched pair
     # - "inference_ready" requires an actual trained checkpoint

@@ -291,6 +291,62 @@ def group_aware_random_split(
     return assignments
 
 
+def build_recursive_relative_stem(path: Path, root: Path) -> str:
+    relative_no_suffix = path.resolve().relative_to(root.resolve()).with_suffix("")
+    return "/".join(part.lower() for part in relative_no_suffix.parts)
+
+
+def build_import_dest_stem(
+    source_path: Path,
+    source_root: Path,
+    prefix: str,
+    recursive: bool,
+) -> str:
+    if recursive:
+        relative_no_suffix = source_path.resolve().relative_to(source_root.resolve()).with_suffix("")
+        normalized_parts = [sanitize_stem(part) for part in relative_no_suffix.parts]
+        stem_body = "_".join(part for part in normalized_parts if part)
+    else:
+        stem_body = source_path.stem
+    return sanitize_stem(f"{prefix}{stem_body}")
+
+
+def build_mask_trimmed_suffix_stem(stem: str) -> str | None:
+    if "_" not in stem:
+        return None
+    trimmed = stem.rsplit("_", 1)[0].strip().lower()
+    return trimmed or None
+
+
+def choose_source_mask_for_image(
+    image_path: Path,
+    source_images_dir: Path,
+    recursive: bool,
+    masks_by_stem: dict[str, Path],
+    masks_by_relative_stem: dict[str, Path],
+    masks_by_stem_multi: dict[str, list[Path]],
+    masks_by_trimmed_suffix_stem: dict[str, list[Path]],
+) -> Path | None:
+    exact = masks_by_stem.get(image_path.stem)
+    if exact is not None:
+        return exact
+
+    if recursive:
+        relative_stem = build_recursive_relative_stem(image_path, source_images_dir)
+        if relative_stem in masks_by_relative_stem:
+            return masks_by_relative_stem[relative_stem]
+
+    candidates = masks_by_stem_multi.get(image_path.stem.lower(), [])
+    if len(candidates) == 1:
+        return candidates[0]
+
+    trimmed_candidates = masks_by_trimmed_suffix_stem.get(image_path.stem.lower(), [])
+    if len(trimmed_candidates) == 1:
+        return trimmed_candidates[0]
+
+    return None
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Manage the robot-drawing ML dataset.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -301,6 +357,11 @@ def parse_args() -> argparse.Namespace:
     import_parser.add_argument("--images-dir", type=str, default="dataset/images", help="Destination images directory")
     import_parser.add_argument("--masks-dir", type=str, default="dataset/masks", help="Destination masks directory")
     import_parser.add_argument("--prefix", type=str, default="", help="Optional prefix added to imported stems")
+    import_parser.add_argument(
+        "--recursive",
+        action="store_true",
+        help="Recursively scan nested source folders and include relative path parts in imported stems",
+    )
     import_parser.add_argument("--overwrite", action="store_true", help="Overwrite existing destination files")
     import_parser.add_argument("--dry-run", action="store_true", help="Preview actions without copying files")
     import_parser.add_argument(
@@ -643,10 +704,30 @@ def handle_import(args: argparse.Namespace) -> None:
     masks_dir = Path(args.masks_dir)
     report_path = Path(args.report_path)
 
-    source_images = list_supported_files(source_images_dir)
-    source_mask_by_stem = {}
+    source_images = (
+        list_supported_files_recursive(source_images_dir)
+        if args.recursive
+        else list_supported_files(source_images_dir)
+    )
+    source_mask_by_stem: dict[str, Path] = {}
+    source_mask_by_relative_stem: dict[str, Path] = {}
+    source_mask_by_stem_multi: dict[str, list[Path]] = defaultdict(list)
+    source_mask_by_trimmed_suffix_stem: dict[str, list[Path]] = defaultdict(list)
     if source_masks_dir is not None:
-        source_mask_by_stem = {mask_path.stem: mask_path for mask_path in list_supported_files(source_masks_dir)}
+        source_masks = (
+            list_supported_files_recursive(source_masks_dir)
+            if args.recursive
+            else list_supported_files(source_masks_dir)
+        )
+        source_mask_by_stem = {mask_path.stem: mask_path for mask_path in source_masks}
+        for mask_path in source_masks:
+            source_mask_by_stem_multi[mask_path.stem.lower()].append(mask_path)
+            trimmed_stem = build_mask_trimmed_suffix_stem(mask_path.stem)
+            if trimmed_stem is not None:
+                source_mask_by_trimmed_suffix_stem[trimmed_stem].append(mask_path)
+            if args.recursive:
+                relative_stem = build_recursive_relative_stem(mask_path, source_masks_dir)
+                source_mask_by_relative_stem[relative_stem] = mask_path
     imported_rows: list[dict] = []
     missing_mask_rows: list[dict] = []
     copied_images = 0
@@ -654,9 +735,22 @@ def handle_import(args: argparse.Namespace) -> None:
     skipped_existing = 0
 
     for image_path in source_images:
-        dest_stem = sanitize_stem(f"{args.prefix}{image_path.stem}")
+        dest_stem = build_import_dest_stem(
+            source_path=image_path,
+            source_root=source_images_dir,
+            prefix=args.prefix,
+            recursive=args.recursive,
+        )
         dest_image = images_dir / f"{dest_stem}{image_path.suffix.lower()}"
-        source_mask = source_mask_by_stem.get(image_path.stem)
+        source_mask = choose_source_mask_for_image(
+            image_path=image_path,
+            source_images_dir=source_images_dir,
+            recursive=args.recursive,
+            masks_by_stem=source_mask_by_stem,
+            masks_by_relative_stem=source_mask_by_relative_stem,
+            masks_by_stem_multi=source_mask_by_stem_multi,
+            masks_by_trimmed_suffix_stem=source_mask_by_trimmed_suffix_stem,
+        )
         dest_mask = None if source_mask is None else masks_dir / f"{dest_stem}{source_mask.suffix.lower()}"
 
         action = "copied"
@@ -702,6 +796,7 @@ def handle_import(args: argparse.Namespace) -> None:
         "images_dir": str(images_dir),
         "masks_dir": str(masks_dir),
         "prefix": args.prefix,
+        "recursive": bool(args.recursive),
         "dry_run": args.dry_run,
         "counts": {
             "source_images": len(source_images),

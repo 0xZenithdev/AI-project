@@ -6,9 +6,9 @@ Supports:
 - a standard calibration pack with pen, distance, and square tests
 - optional .py/.mcode artifacts built from the same commands
 
-Memory note:
+Implementation note:
 - the standard pack order is pen_gaps -> ruler -> square
-- that order matches the agreed project plan in PROJECT_MEMORY.md
+- that order matches the project notes in PROJECT_NOTES.md
 
 Examples:
 python -m src.generate_test_plot_commands --shape line --size-mm 20
@@ -27,7 +27,13 @@ from src.bridge_protocol import (
     BridgeCommand,
     save_bridge_commands_as_text,
 )
-from src.mblock_script_generator import compile_actions, render_script
+from src.mblock_script_generator import (
+    DEFAULT_START_HEADING_DEG,
+    DEFAULT_START_TIP_X_MM,
+    DEFAULT_START_TIP_Y_MM,
+    compile_actions,
+    render_script,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -130,8 +136,16 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--use-pen",
+        dest="use_pen",
         action="store_true",
+        default=True,
         help="Enable pen control in generated .py/.mcode artifacts",
+    )
+    parser.add_argument(
+        "--no-use-pen",
+        dest="use_pen",
+        action="store_false",
+        help="Disable pen control in generated .py/.mcode artifacts",
     )
     parser.add_argument(
         "--servo-port",
@@ -142,7 +156,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--pen-lift-delta",
         type=float,
-        default=60.0,
+        default=36.0,
         help="Pen-lift delta for generated .py/.mcode artifacts",
     )
     parser.add_argument(
@@ -154,7 +168,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--turn-scale",
         type=float,
-        default=1.0,
+        default=1.04,
         help="Current turn calibration factor for generated .py/.mcode artifacts",
     )
     parser.add_argument(
@@ -182,6 +196,42 @@ def parse_args() -> argparse.Namespace:
         default="b",
         choices=["a", "b"],
         help="CyberPi button that stops generated .py/.mcode artifacts",
+    )
+    parser.add_argument(
+        "--corner-lift-turn-deg",
+        type=float,
+        default=30.0,
+        help="Lift the pen before turns at or above this angle in generated .py/.mcode artifacts",
+    )
+    parser.add_argument(
+        "--pen-forward-offset-mm",
+        type=float,
+        default=160.0,
+        help="Distance from the robot turn center to the pen tip in the forward direction",
+    )
+    parser.add_argument(
+        "--pen-lateral-offset-mm",
+        type=float,
+        default=0.0,
+        help="Distance from the robot turn center to the pen tip toward the robot's left side",
+    )
+    parser.add_argument(
+        "--robot-start-x-mm",
+        type=float,
+        default=DEFAULT_START_TIP_X_MM,
+        help="Initial lifted pen-tip x used when compiling .mcode",
+    )
+    parser.add_argument(
+        "--robot-start-y-mm",
+        type=float,
+        default=DEFAULT_START_TIP_Y_MM,
+        help="Initial lifted pen-tip y used when compiling .mcode",
+    )
+    parser.add_argument(
+        "--robot-start-heading-deg",
+        type=float,
+        default=DEFAULT_START_HEADING_DEG,
+        help="Initial heading used when compiling .mcode",
     )
     return parser.parse_args()
 
@@ -254,28 +304,49 @@ def square_motion_actions(
     size_mm: float,
     mm_per_straight_unit: float,
     use_pen: bool,
+    corner_lift_turn_deg: float,
 ) -> list[tuple[str, float | None]]:
     """
-    Direct action version of the motion-square test for clearer robot behavior.
+    Direct action version of the motion-square test for robot-center calibration.
 
-    Memory note:
+    Implementation note:
     - this is intentionally calibration-focused, not the normal drawing path
-    - it makes the robot do 4 straight segments and 4 explicit 90-degree turns
+    - it makes the robot center do 4 straight segments and 4 explicit 90-degree
+      turns
+    - it should only be used for movement-only tests where the pen tip offset
+      is irrelevant
     """
     straight_units = round(size_mm / mm_per_straight_unit, 2)
     actions: list[tuple[str, float | None]] = []
 
-    if use_pen:
-        actions.append(("PD", None))
-
     for _ in range(4):
+        if use_pen:
+            actions.append(("PD", None))
         actions.append(("ST", straight_units))
+        if use_pen and corner_lift_turn_deg > 0.0:
+            actions.append(("PU", None))
         actions.append(("TR", -90.0))
-
-    if use_pen:
+    if use_pen and (corner_lift_turn_deg <= 0.0):
         actions.append(("PU", None))
 
     return actions
+
+
+def should_use_direct_square_motion_actions(args: argparse.Namespace) -> bool:
+    """
+    Use the old direct ST/TR square only for movement-only center calibration.
+
+    Once the pen is involved, especially with a large forward offset, the square
+    must be compiled through the normal offset-aware path so the pen tip rather
+    than the robot center becomes the thing that traces the square.
+    """
+    if args.use_pen:
+        return False
+    if abs(float(args.pen_forward_offset_mm)) > 1e-9:
+        return False
+    if abs(float(args.pen_lateral_offset_mm)) > 1e-9:
+        return False
+    return True
 
 
 def pen_gap_commands(
@@ -340,6 +411,11 @@ def build_compiled_artifacts(
             mm_per_straight_unit=args.mm_per_straight_unit,
             min_turn_deg=1.0,
             min_move_mm=1.0,
+            corner_lift_turn_deg=args.corner_lift_turn_deg,
+            pen_forward_offset_mm=args.pen_forward_offset_mm,
+            pen_lateral_offset_mm=args.pen_lateral_offset_mm,
+            start_tip_point=(args.robot_start_x_mm, args.robot_start_y_mm),
+            start_heading_deg=args.robot_start_heading_deg,
         )
     else:
         actions = actions_override
@@ -353,6 +429,8 @@ def build_compiled_artifacts(
         pen_delay_s=args.pen_delay_s,
         turn_delay_s=args.turn_delay_s,
         turn_scale=args.turn_scale,
+        start_tip_point=(args.robot_start_x_mm, args.robot_start_y_mm),
+        start_heading_deg=args.robot_start_heading_deg,
     )
 
     py_path = output_base.with_suffix(".py")
@@ -392,11 +470,13 @@ def write_single_shape(args: argparse.Namespace) -> None:
             size_mm=args.size_mm,
             draw_speed=args.draw_speed,
         )
-        actions_override = square_motion_actions(
-            size_mm=args.size_mm,
-            mm_per_straight_unit=args.mm_per_straight_unit,
-            use_pen=args.use_pen,
-        )
+        if should_use_direct_square_motion_actions(args):
+            actions_override = square_motion_actions(
+                size_mm=args.size_mm,
+                mm_per_straight_unit=args.mm_per_straight_unit,
+                use_pen=args.use_pen,
+                corner_lift_turn_deg=args.corner_lift_turn_deg,
+            )
     elif args.shape == "pen-gaps":
         commands = pen_gap_commands(
             start_x=args.start_x,

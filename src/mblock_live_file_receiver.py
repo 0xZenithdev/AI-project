@@ -8,22 +8,23 @@ import mbot2
 import time
 
 
-COMMAND_FILE = r"E:\Yara 2025\LU 3rd year CS\2nd sem\I3335(intro to ai)\AI-project\output\bridge_commands.jsonl"
+# Update this path when using file mode from a different working folder.
+COMMAND_FILE = "output/bridge_commands.jsonl"
 USE_PEN = False
 # Use the actual servo port wired to the pen lift: S1, S2, S3, or S4.
 SERVO_PORT = "S1"
 
 # Pen-lift convention confirmed by the user:
-# - positive servo delta raises the pen
-# - negative servo delta lowers the pen
-# Memory note:
-# keep this constant block aligned with the socket receiver, inline test
-# receiver, and PROJECT_MEMORY.md so future sessions do not drift.
-PEN_LIFT_DELTA = 60
+# - negative servo delta raises the pen
+# - positive servo delta lowers the pen
+# Keep this constant block aligned with the socket receiver, inline test
+# receiver, and PROJECT_NOTES.md.
+PEN_LIFT_DELTA = 36
 
 TURN_SIGN = 1.0
-TURN_SCALE = 1.0
+TURN_SCALE = 1.04
 MM_PER_STRAIGHT_UNIT = 10.0
+CORNER_LIFT_TURN_DEG = 30.0
 PEN_DELAY_S = 1.0
 TURN_DELAY_S = 0.1
 MAX_LINE_CHARS = 8192
@@ -51,7 +52,7 @@ class RobotAdapter:
         self.current_y = 0.0
         self.heading_deg = 0.0
         self.pen_is_down = False
-        # Memory note: the receiver assumes the pen is already physically UP
+        # The receiver assumes the pen is already physically UP
         # before the job starts, so we do not auto-raise it here.
         mbot2.EM_stop("ALL")
         log("START")
@@ -67,7 +68,7 @@ class RobotAdapter:
             return
         if not self.pen_is_down:
             return
-        self._servo_by(PEN_LIFT_DELTA)
+        self._servo_by(-PEN_LIFT_DELTA)
         self.pen_is_down = False
         log("PEN_UP")
 
@@ -77,7 +78,7 @@ class RobotAdapter:
             return
         if self.pen_is_down:
             return
-        self._servo_by(-PEN_LIFT_DELTA)
+        self._servo_by(+PEN_LIFT_DELTA)
         self.pen_is_down = True
         log("PEN_DOWN")
 
@@ -93,7 +94,15 @@ class RobotAdapter:
         target_heading = math.degrees(math.atan2(-dy, dx))
         turn_delta = self._normalize_angle(target_heading - self.heading_deg)
 
+        restore_pen_after_turn = USE_PEN and self.pen_is_down and abs(turn_delta) >= CORNER_LIFT_TURN_DEG
+        if restore_pen_after_turn:
+            self.pen_up()
+
         self._turn_by(turn_delta)
+
+        if restore_pen_after_turn:
+            self.pen_down()
+
         mbot2.straight(round(distance_mm / MM_PER_STRAIGHT_UNIT, 2))
         log("MOVE", x, y, speed)
 
