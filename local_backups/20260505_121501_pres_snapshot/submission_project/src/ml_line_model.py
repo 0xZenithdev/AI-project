@@ -14,7 +14,7 @@ from src.image_geometry import load_image_rgb, resize_with_aspect_pad
 
 @dataclass
 class ModelConfig:
-    """Image size settings ."""
+    """Image size settings stored with a checkpoint."""
 
     width: int = 210
     height: int = 297
@@ -22,7 +22,7 @@ class ModelConfig:
 
 
 class ConvBlock(nn.Module):
-   
+    """Two convolution layers followed by ReLU activations."""
 
     def __init__(self, in_ch: int, out_ch: int) -> None:
         super().__init__()
@@ -38,7 +38,7 @@ class ConvBlock(nn.Module):
 
 
 class TinyUNet(nn.Module):
-    
+    """Compact U-Net style model for binary line masks."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -67,7 +67,7 @@ class TinyUNet(nn.Module):
 
         d2 = self.up2(b)
         if d2.shape[-2:] != e2.shape[-2:]:
-            
+            # 210x297 is not divisible by 4, so resize decoder maps before concatenation.
             d2 = nn.functional.interpolate(d2, size=e2.shape[-2:], mode="bilinear", align_corners=False)
         d2 = torch.cat([d2, e2], dim=1)
         d2 = self.dec2(d2)
@@ -85,7 +85,7 @@ def load_model_from_checkpoint(
     checkpoint_path: str,
     device: torch.device,
 ) -> tuple[TinyUNet, ModelConfig]:
-    
+    """Load the saved model and its image-size settings."""
     checkpoint = torch.load(checkpoint_path, map_location=device)
 
     model = TinyUNet().to(device)
@@ -106,7 +106,7 @@ def predict_line_mask(
     threshold: float = 0.5,
     device_str: str = "cpu",
 ) -> np.ndarray:
-    
+    """Run the saved model and return a binary mask."""
     device = torch.device(device_str)
     model, cfg = load_model_from_checkpoint(checkpoint_path, device=device)
 

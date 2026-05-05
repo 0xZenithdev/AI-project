@@ -4,192 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Robot Drawing Studio</title>
-  <style>
-    :root{--bg:#f4efe6;--panel:#fffdfa;--panel-soft:#f7f3eb;--line:#2035481a;--line-strong:#20354836;--ink:#182430;--soft:#5f6c76;--accent:#2f5876;--accent-soft:#e8eff5;--accent-soft-2:#f3f7fa;--warm:#b66f4a;--green:#2f6a46;--green-soft:#ebf6ef;--shadow:0 14px 34px #15212d10;--mono:"Consolas","Lucida Console",monospace;--body:"Segoe UI","Aptos","Trebuchet MS",sans-serif;--display:"Cambria","Georgia",serif}
-    *{box-sizing:border-box}
-    body{margin:0;min-height:100vh;color:var(--ink);font-family:var(--body);background:linear-gradient(180deg,#faf7f1,#f2ede4)}
-    h1,h2,h3{margin:0;font-family:var(--display)}
-    h1{font-size:clamp(1.65rem,2.4vw,2.3rem);line-height:1;letter-spacing:-.02em}
-    h2{font-size:1.18rem}
-    h3{font-size:1rem}
-    p{margin:0;color:var(--soft);line-height:1.52}
-    .shell{width:min(1240px,calc(100vw - 28px));margin:16px auto 28px;display:grid;gap:14px}
-    .hero,.card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}
-    .card{padding:16px}
-    .hero{padding:18px 20px;display:grid;gap:12px}
-    .hero-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:start}
-    .hero-copy{display:grid;gap:8px;max-width:760px}
-    .hero-copy p{max-width:64ch}
-    .badge,.step-label,.mode-badge{display:inline-flex;align-items:center;gap:8px;border-radius:999px;font-weight:700;width:max-content}
-    .badge{padding:7px 11px;background:var(--accent-soft);color:var(--accent);font-size:.82rem}
-    .step-label{padding:6px 10px;background:var(--accent-soft);color:var(--accent);font-size:.76rem;letter-spacing:.06em;text-transform:uppercase}
-    .hero-grid{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start}
-    .hero-kpis{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:8px}
-    .hero-kpi{padding:12px 14px;border-radius:16px;border:1px solid var(--line);background:var(--panel-soft)}
-    .hero-kpi span{display:block;color:var(--soft);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
-    .hero-kpi strong{display:block;margin-top:4px;font-size:.98rem;font-family:var(--body);font-weight:700;color:var(--ink)}
-    .stepper{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-    .chip{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:16px;padding:10px 12px;background:var(--panel-soft)}
-    .chip span{width:22px;height:22px;border-radius:999px;display:grid;place-items:center;border:1px solid var(--line-strong);background:#fff;font-size:.8rem;font-weight:700;color:var(--soft);flex:0 0 auto}
-    .chip strong{display:block;font-size:.88rem;color:var(--ink)}
-    .chip small{display:block;color:var(--soft);font-size:.76rem;line-height:1.25}
-    .chip.current{border-color:#2f58764a;background:var(--accent-soft-2)}
-    .chip.current span{background:var(--accent);border-color:var(--accent);color:#fff}
-    .chip.done{background:var(--green-soft);border-color:#2f6a4633}
-    .chip.done span{background:var(--green);border-color:var(--green);color:#fff}
-    .chip.locked{opacity:.66}
-    .status-dock{display:grid;gap:10px;background:var(--panel)}
-    .status-top{display:flex;justify-content:space-between;gap:12px;align-items:center}
-    .status-copy{display:grid;gap:4px}
-    .status-copy p{font-size:.88rem}
-    .status,.path-box,.code-box{border-radius:16px;border:1px solid var(--line);background:#fbf8f1;color:var(--ink);font-family:var(--mono);line-height:1.5;white-space:pre-wrap;word-break:break-word}
-    .status{padding:12px;font-size:.86rem;max-height:180px;overflow:auto}
-    .status-mini{display:none;border-radius:14px;border:1px solid var(--line);background:var(--panel-soft);padding:10px 12px;color:var(--soft);font-size:.88rem;line-height:1.45;white-space:pre-wrap}
-    .ghost-btn{width:auto;min-width:88px;padding:8px 12px;border-radius:12px;background:#fff}
-    #statusPanel.collapsed .status-body{display:none}
-    #statusPanel.collapsed .status-mini{display:block}
-    .wizard{display:grid;grid-template-columns:minmax(340px,390px) minmax(0,1fr);gap:14px;align-items:start}
-    #step1Panel{grid-column:1;grid-row:1}
-    #step1Panel.wide{grid-column:1/3}
-    #step2Panel{grid-column:2;grid-row:1}
-    #step3Panel,#step4Panel{grid-column:1/3}
-    .hidden{display:none}
-    .head{display:grid;gap:6px;margin-bottom:12px}
-    .step1-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,176px);gap:12px;align-items:start}
-    .step1-layout > *{min-width:0}
-    .field,.grid{display:grid;gap:12px}
-    .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .decision-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
-    .decision-card{display:grid;gap:10px;padding:14px;border-radius:18px;border:1px solid var(--line);background:linear-gradient(180deg,#fffefb,#f7f3eb)}
-    .decision-card.recommended-choice{border-color:#2f6a4633;background:linear-gradient(180deg,#fffefb,#f4faf5)}
-    .decision-card.alternative-choice{border-color:#2f587632;background:linear-gradient(180deg,#fffefb,#f3f7fa)}
-    .decision-card-head{display:flex;justify-content:space-between;gap:12px;align-items:start}
-    .decision-copy{display:grid;gap:4px}
-    .decision-copy p{font-size:.88rem}
-    .decision-detail{font-size:.88rem;color:var(--soft);line-height:1.5}
-    .selection-strip{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-    .selection-pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:.84rem;color:var(--ink)}
-    .selection-pill strong{font-size:.84rem}
-    label{display:grid;gap:6px;font-size:.9rem;font-weight:600;color:var(--ink)}
-    input,select,button{width:100%;font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff}
-    input:focus,select:focus{outline:2px solid #2f587622;border-color:#2f587650}
-    input[type=file]{padding:8px;background:var(--panel-soft)}
-    input[type=checkbox]{width:18px;height:18px;margin:0;padding:0}
-    button{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,opacity .12s ease}
-    button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 18px #17202b12}
-    button:disabled{opacity:.58;cursor:not-allowed}
-    .primary{border:0;color:#fff;background:linear-gradient(135deg,var(--accent),#46708c)}
-    .secondary{background:#fff}
-    .warm{border:0;color:#fff;background:linear-gradient(135deg,var(--warm),#cd8962)}
-    .preset-row{display:flex;gap:8px;flex-wrap:wrap}
-    .preset-row button{width:auto}
-    .subtle-box{padding:13px;border-radius:16px;border:1px solid var(--line);background:var(--panel-soft)}
-    .inline-check{display:flex;align-items:center;gap:10px;margin-top:8px;color:var(--soft);font-size:.9rem}
-    .note,.tiny{font-size:.88rem;color:var(--soft)}
-    .ok-note{display:none;margin-top:10px;padding:10px 12px;border-radius:14px;border:1px solid #2f6a462b;background:var(--green-soft);color:var(--green);font-size:.9rem}
-    details{margin-top:10px;border-radius:16px;border:1px solid var(--line);background:var(--panel-soft);padding:12px 13px}
-    summary{cursor:pointer;font-weight:700;color:var(--ink)}
-    .settings-folders{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
-    .frame{aspect-ratio:1.12/1;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:linear-gradient(180deg,#fffefb,#f3eee5);display:grid;place-items:center;padding:14px}
-    .frame img{display:none;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;object-position:center center}
-    .frame.has-image img{display:block}
-    .placeholder{padding:18px;text-align:center;color:#6a7680;line-height:1.45;font-size:.9rem}
-    .step1-layout .frame{aspect-ratio:1/1;padding:12px}
-    #step1Panel.wide .step1-layout{grid-template-columns:minmax(250px,320px) minmax(260px,1fr);gap:14px}
-    #step1Panel.wide .step1-layout .frame{aspect-ratio:1.08/1;padding:14px}
-    .results{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(320px,1.08fr);grid-template-areas:"original detected planned";gap:12px;align-items:start}
-    .preview-card{display:grid;gap:10px;padding:12px;border-radius:20px;border:1px solid var(--line);background:var(--panel-soft)}
-    .preview-card > *{min-width:0}
-    .preview-card.original{grid-area:original}
-    .preview-card.detected{grid-area:detected}
-    .preview-card.primary{grid-area:planned;background:linear-gradient(180deg,#f7fbfe,#eef4f8);border-color:#2f58762e}
-    .preview-card.primary h3{color:var(--ink)}
-    .preview-card.support .frame{aspect-ratio:1/1}
-    .preview-card.primary .frame{aspect-ratio:1.06/1;padding:16px;background:linear-gradient(180deg,#fcfeff,#edf4f8)}
-    .preview-card.primary .frame img{width:92%;height:92%;max-width:92%;max-height:92%;object-fit:contain;object-position:center center}
-    .review-summary{display:grid;gap:8px;line-height:1.58;white-space:pre-wrap}
-    .metrics-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
-    .stat{padding:14px;border-radius:18px;border:1px solid var(--line);background:var(--panel-soft)}
-    .stat strong{display:block;font-family:var(--display);font-size:1.4rem}
-    .stat span{display:block;color:var(--soft);font-size:.86rem;margin-top:4px}
-    .review-support{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr);gap:12px;margin-top:12px;align-items:start}
-    .files{display:grid;gap:8px;padding:14px;border-radius:18px;border:1px solid var(--line);background:var(--panel-soft)}
-    .files a{color:var(--accent);text-decoration:none;font-weight:700}
-    .files a:hover{text-decoration:underline}
-    .links{display:flex;gap:8px;flex-wrap:wrap}
-    .mode-box{display:grid;gap:12px;padding:14px;border-radius:20px;border:1px solid var(--line);background:var(--panel-soft)}
-    .mode-head{display:flex;justify-content:space-between;gap:12px;align-items:start}
-    .mode-copy{font-size:.9rem;color:var(--soft);line-height:1.5}
-    .mode-badge{padding:7px 10px;font-size:.78rem}
-    .mode-badge.recommended{background:var(--green-soft);color:var(--green)}
-    .mode-badge.advanced{background:var(--accent-soft);color:var(--accent)}
-    .mode-badge.ai{background:#efe6d9;color:#7c5a3f}
-    .mode-badge.tie{background:#f0ece4;color:#6f6654}
-    .tab-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-    .tab-btn{width:auto;border-radius:999px;padding:8px 12px;background:#fff}
-    .tab-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
-    .action-panel{display:none;gap:14px;margin-top:12px}
-    .action-panel.active{display:grid}
-    .check-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
-    .check-card{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:10px 12px;color:var(--ink)}
-    .summary-box{border-radius:16px;border:1px solid var(--line);background:#f8f2e9;padding:12px;line-height:1.55;white-space:pre-wrap}
-    .summary-highlights{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:10px}
-    .compare-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px;margin-top:12px;align-items:start}
-    .compare-grid.multi-run{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .compare-card{border-radius:18px;border:1px solid var(--line);background:#fff;padding:16px;display:grid;gap:14px}
-    .compare-card.best{border-color:#2f6a4638;background:linear-gradient(180deg,#fffefb,#f5faf6)}
-    .compare-card-head{display:flex;justify-content:space-between;gap:12px;align-items:start}
-    .compare-note{border-radius:14px;border:1px solid var(--line);background:var(--panel-soft);padding:10px 12px;font-size:.88rem;color:var(--soft);line-height:1.45}
-    .thumb-row{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
-    .compare-metrics{display:grid;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr))}
-    .compare-secondary{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
-    .stats-secondary{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
-    .thumb-stack{display:grid;gap:6px}
-    .thumb-label{font-size:.78rem;color:var(--soft);font-weight:700;letter-spacing:.02em}
-    .thumb{aspect-ratio:1/1;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:linear-gradient(180deg,#fffefb,#f3eee5);display:grid;place-items:center;text-decoration:none;padding:12px}
-    .thumb img{width:100%;height:100%;object-fit:contain;display:block}
-    .thumb span{font-size:.82rem;color:var(--soft);padding:10px;text-align:center}
-    .mini-metric{border-radius:14px;border:1px solid var(--line);background:var(--panel-soft);padding:10px 12px}
-    .mini-metric strong{display:block;font-family:var(--display);font-size:1.05rem}
-    .mini-metric span{display:block;color:var(--soft);font-size:.82rem;margin-top:2px}
-    .mini-metric em{display:block;color:var(--soft);font-style:normal;font-size:.78rem;margin-top:6px;line-height:1.4}
-    .path-box,.code-box{padding:12px}
-    .code-box{display:none;max-height:320px;overflow:auto}
-    .bridge-advanced{margin-top:12px}
-    .bridge-advanced summary{font-family:var(--display);font-size:1rem}
-    .scroll-top-btn{position:fixed;right:22px;bottom:22px;z-index:30;width:auto;min-width:0;padding:10px 14px;border-radius:999px;border:0;background:linear-gradient(135deg,var(--accent),#46708c);color:#fff;box-shadow:0 14px 28px #17202b24;opacity:0;pointer-events:none;transform:translateY(10px);transition:opacity .18s ease,transform .18s ease,box-shadow .18s ease}
-    .scroll-top-btn.visible{opacity:1;pointer-events:auto;transform:translateY(0)}
-    .scroll-top-btn:hover{box-shadow:0 16px 32px #17202b2e}
-    @media (max-width:1180px){
-      .shell{width:min(1180px,calc(100vw - 20px))}
-      .hero-grid{grid-template-columns:1fr}
-      .metrics-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .review-support{grid-template-columns:1fr}
-      .settings-folders{grid-template-columns:1fr 1fr}
-      .wizard{grid-template-columns:minmax(320px,370px) minmax(0,1fr)}
-      #step1Panel.wide .step1-layout{grid-template-columns:minmax(220px,280px) minmax(220px,1fr)}
-    }
-    @media (max-width:980px){
-      .results{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"original detected" "planned planned"}
-    }
-    @media (max-width:860px){
-      .shell{width:min(100vw - 14px,720px);margin:10px auto 20px}
-      .hero-top,.hero-grid,.stepper,.wizard,.grid,.decision-grid,.results,.metrics-strip,.review-support,.settings-folders,.check-grid,.compare-metrics,.compare-secondary,.stats-secondary,.summary-highlights{grid-template-columns:1fr;display:grid}
-      .hero-top{display:flex;flex-direction:column}
-      .hero{padding:16px}
-      .hero,.card{border-radius:18px}
-      .card,.mode-box,.files,.stat,.status,.path-box,.code-box,.subtle-box{padding:14px}
-      #step1Panel,#step2Panel,#step3Panel,#step4Panel{grid-column:1;grid-row:auto}
-      .results{grid-template-areas:none}
-      .step1-layout{grid-template-columns:1fr}
-      .preset-row{display:grid;grid-template-columns:1fr}
-      #toggleStatusBtn{display:none}
-      #statusPanel .status-body,#statusPanel.collapsed .status-body{display:block}
-      #statusPanel .status-mini,#statusPanel.collapsed .status-mini{display:none !important}
-      #statusPanel .status{max-height:none}
-      .scroll-top-btn{right:16px;bottom:16px}
-    }
-  </style>
+  <link rel="stylesheet" href="/files/ui/index.css">
 </head>
 <body>
   <main class="shell">
@@ -320,12 +135,12 @@
           <div class="selection-pill"><strong id="currentPlanningChip">Planning: Two-opt</strong></div>
           <div class="selection-pill hidden" id="currentCheckpointChip"><strong id="currentCheckpointText">Checkpoint</strong></div>
         </div>
-        <button id="generateBtn" class="primary" style="margin-top:14px;">Generate Preview</button>
+        <button id="generateBtn" class="primary top-gap-14">Generate Preview</button>
         <p class="note hidden" id="generationNote"></p>
         <div class="settings-folders">
           <details>
             <summary>Paper and speed settings</summary>
-            <div class="grid" style="margin-top:12px;">
+            <div class="grid top-gap-12">
               <label>Paper width mm<input id="paperWidthMm" type="number" value="210" step="1"></label>
               <label>Paper height mm<input id="paperHeightMm" type="number" value="297" step="1"></label>
               <label>Margin mm<input id="marginMm" type="number" value="10" step="0.5"></label>
@@ -337,7 +152,7 @@
           </details>
           <details>
             <summary>Cleanup settings</summary>
-            <div class="grid" style="margin-top:12px;">
+            <div class="grid top-gap-12">
               <label>Min path length mm<input id="minPathLengthMm" type="number" value="2.0" step="0.1"></label>
               <label>Min segment length mm<input id="minSegmentLengthMm" type="number" value="0.75" step="0.05"></label>
               <label>Simplify tolerance mm<input id="simplifyToleranceMm" type="number" value="0.5" step="0.05"></label>
@@ -377,7 +192,7 @@
           </div>
           <details>
             <summary>Technical counts</summary>
-            <div class="stats-secondary" style="margin-top:12px;">
+            <div class="stats-secondary top-gap-12">
               <div class="stat"><strong id="metricInputPoints">0</strong><span>Input points</span></div>
               <div class="stat"><strong id="metricOutputPoints">0</strong><span>Output points</span></div>
             </div>
@@ -418,7 +233,7 @@
               </label>
             </div>
             <div id="maskSelectionNote" class="ok-note"></div>
-            <button id="compareBtn" class="primary" style="margin-top:4px;" disabled>Run method comparison</button>
+            <button id="compareBtn" class="primary top-gap-4" disabled>Run method comparison</button>
             <div class="summary-highlights hidden" id="experimentHighlights"></div>
             <div class="summary-box" id="experimentSummaryBox">No comparison has been run yet.</div>
             <div class="compare-grid hidden" id="experimentResults"></div>
@@ -437,8 +252,9 @@
               <label>Base filename<input id="baseName" type="text" value="ui_draw_job"></label>
               <label>Servo port<select id="servoPort"><option value="S1">S1</option><option value="S2">S2</option><option value="S3">S3</option><option value="S4">S4</option></select></label>
               <label>mm per straight unit<input id="mmPerStraightUnit" type="number" value="10" step="0.1"></label>
-              <label>Min robot move mm<input id="minMoveMm" type="number" value="20" step="0.5"></label>
-              <label>Min straight units<input id="minStraightUnits" type="number" value="2" step="0.1"></label>
+              <label>Ignore moves below mm<input id="minMoveMm" type="number" value="0.5" step="0.1"></label>
+              <label>Straight-unit clamp (0 = off)<input id="minStraightUnits" type="number" value="0" step="0.1"></label>
+              <label>Skip drawn segments below mm<input id="minDrawnSegmentMm" type="number" value="0" step="0.5"></label>
               <label>Turn scale<input id="turnScale" type="number" value="1.04" step="0.01"></label>
               <label>Pen lift delta<input id="penLiftDelta" type="number" value="36" step="1"></label>
               <label>Pen delay s<input id="penDelayS" type="number" value="0.3" step="0.05"></label>
@@ -451,8 +267,8 @@
               <label>Start heading deg<input id="startHeadingDeg" type="number" value="90" step="1"></label>
             </div>
             <label class="inline-check"><input id="usePen" type="checkbox" checked>Include pen servo actions</label>
-            <div class="ok-note">Robot export defaults are preloaded for the current mBot2 pen mount: with the mBot2 back at the bottom edge, pen contact point starts about 20 cm into A4 at (105, 97), heading 90 degrees into the paper. Pen-up uses negative delta, pen-down uses positive delta, PEN_LIFT_DELTA 36, TURN_SCALE 1.04, 160 mm forward offset, 20 mm minimum drawing segments, and export clamping so real robot moves are at least 20 mm / 2 straight units instead of being dropped.</div>
-            <button id="exportBtn" class="warm" style="margin-top:4px;" disabled>Prepare Python and .mcode</button>
+            <div class="ok-note">Robot export defaults are preloaded for the current mBot2 pen mount: with the mBot2 back at the bottom edge, pen contact point starts about 20 cm into A4 at (105, 97), heading 90 degrees into the paper. Pen-up uses negative delta, pen-down uses positive delta, PEN_LIFT_DELTA 36, TURN_SCALE 1.04, 160 mm forward offset, and short drawing segments are preserved by default so corners are not stretched. If tiny connectors look like dots, use “Skip drawn segments below mm” to omit them cleanly.</div>
+            <button id="exportBtn" class="warm top-gap-4" disabled>Prepare Python and .mcode</button>
             <div class="export-tools hidden" id="exportTools">
               <p class="tiny">Use these files for the robot workflow that already works on your machine.</p>
               <div class="links">
@@ -468,29 +284,6 @@
             <div class="path-box" id="latestExportBox">No export yet.</div>
           </div>
         </div>
-        <details class="bridge-advanced">
-          <summary>Advanced live send</summary>
-          <div class="mode-box" style="margin-top:12px;">
-            <div class="mode-head">
-              <div>
-                <h3>Live bridge</h3>
-                <p class="mode-copy">More automatic, but more complex. Use this only if the live receiver is already running in mBlock and you specifically want to send commands directly.</p>
-              </div>
-              <div class="mode-badge advanced">Advanced</div>
-            </div>
-            <div class="grid" style="margin-top:12px;">
-              <label>Send mode<select id="sendMode"><option value="socket">socket</option><option value="file">file</option></select></label>
-              <label>Host<input id="host" type="text" value="127.0.0.1"></label>
-              <label>Port<input id="port" type="number" value="8765" step="1"></label>
-              <label>Delay ms<input id="delayMs" type="number" value="20" step="1"></label>
-              <label>Connect attempts<input id="connectAttempts" type="number" value="20" step="1"></label>
-              <label>Retry delay ms<input id="retryDelayMs" type="number" value="500" step="50"></label>
-              <label style="grid-column:1/-1;">File-mode outbox<input id="outbox" type="text" value="output/bridge_commands.jsonl"></label>
-            </div>
-            <label class="inline-check"><input id="prependPing" type="checkbox" checked>Prepend diagnostic PING</label>
-            <button id="sendBtn" class="secondary" style="margin-top:4px;" disabled>Send through live bridge</button>
-          </div>
-        </details>
       </section>
 
     </section>
@@ -500,7 +293,7 @@
   <script>
     const state={imageDataUrl:"",filename:"",imagePath:"",commandsPath:"",sessionId:"",selectedImage:false,generated:false,maskDataUrl:"",maskFilename:"",experimented:false,exported:false,uiConfig:null};
     const $=(id)=>document.getElementById(id);
-    const statusLog=$("statusLog"),selectionNote=$("selectionNote"),generateBtn=$("generateBtn"),sendBtn=$("sendBtn"),exportBtn=$("exportBtn"),compareBtn=$("compareBtn"),latestExportBox=$("latestExportBox");
+    const statusLog=$("statusLog"),selectionNote=$("selectionNote"),generateBtn=$("generateBtn"),exportBtn=$("exportBtn"),compareBtn=$("compareBtn"),latestExportBox=$("latestExportBox");
     const exportTools=$("exportTools"),pythonPreviewBox=$("pythonPreviewBox"),showPythonBtn=$("showPythonBtn"),copyPythonBtn=$("copyPythonBtn");
     const statusPanel=$("statusPanel"),toggleStatusBtn=$("toggleStatusBtn"),statusMini=$("statusMini");
     const experimentSummaryBox=$("experimentSummaryBox"),experimentResults=$("experimentResults"),maskSelectionNote=$("maskSelectionNote"),experimentHighlights=$("experimentHighlights");
@@ -737,6 +530,7 @@
         $("mmPerStraightUnit").value=String(robotExport.mmPerStraightUnit ?? $("mmPerStraightUnit").value);
         $("minMoveMm").value=String(robotExport.minMoveMm ?? $("minMoveMm").value);
         $("minStraightUnits").value=String(robotExport.minStraightUnits ?? $("minStraightUnits").value);
+        $("minDrawnSegmentMm").value=String(robotExport.minDrawnSegmentMm ?? $("minDrawnSegmentMm").value);
         $("turnScale").value=String(robotExport.turnScale ?? $("turnScale").value);
         $("penLiftDelta").value=String(robotExport.penLiftDelta ?? $("penLiftDelta").value);
         $("penDelayS").value=String(robotExport.penDelayS ?? $("penDelayS").value);
@@ -1059,7 +853,7 @@
 
     generateBtn.addEventListener("click",async()=>{
       if(!state.imageDataUrl){ setStatus("Choose an image first."); return; }
-      generateBtn.disabled=true; sendBtn.disabled=true; exportBtn.disabled=true; setStatus("Generating previews and commands...");
+      generateBtn.disabled=true; exportBtn.disabled=true; setStatus("Generating previews and commands...");
       try{
         const result=await postJson("/api/process",{filename:state.filename,imageDataUrl:state.imageDataUrl,options:collectOptions()});
         state.commandsPath=result.commandsPath; state.sessionId=result.sessionId; state.generated=true; state.experimented=false; state.exported=false; state.imagePath=result.imagePath;
@@ -1071,7 +865,7 @@
         $("metricPenUpDistance").textContent=String(result.planMetrics.penUpDistanceMm); $("metricDrawDistance").textContent=String(result.planMetrics.drawDistanceMm);
         updateReviewSummary(result);
         $("commandsPath").textContent=compactPath(result.commandsPath); $("commandsLink").href=result.files.commandsUrl; $("summaryLink").href=result.files.summaryUrl;
-        show($("resultLinks"),true); sendBtn.disabled=false; exportBtn.disabled=false; latestExportBox.textContent="No export yet.";
+        show($("resultLinks"),true); exportBtn.disabled=false; latestExportBox.textContent="No export yet.";
         show(exportTools,false);
         pythonPreviewBox.style.display="none";
         pythonPreviewBox.textContent="No Python export loaded yet.";
@@ -1107,20 +901,6 @@
       finally{ compareBtn.disabled=false; }
     });
 
-    sendBtn.addEventListener("click",async()=>{
-      if(!state.commandsPath){ setStatus("Generate commands first."); return; }
-      sendBtn.disabled=true; appendStatus("Sending latest commands...");
-      try{
-        const result=await postJson("/api/send",{
-          commandsPath:state.commandsPath,mode:$("sendMode").value,host:$("host").value.trim()||"127.0.0.1",port:Number($("port").value),
-          delayMs:Number($("delayMs").value),connectAttempts:Number($("connectAttempts").value),retryDelayMs:Number($("retryDelayMs").value),
-          prependPing:$("prependPing").checked,outbox:$("outbox").value.trim()||"output/bridge_commands.jsonl"
-        });
-        appendStatus(`${result.message}\nDestination: ${result.destination}\n${result.commandSummary}`);
-      }catch(error){ appendStatus(`Send failed.\n${error.message}`); }
-      finally{ sendBtn.disabled=false; }
-    });
-
     exportBtn.addEventListener("click",async()=>{
       if(!state.commandsPath){ setStatus("Generate commands first."); return; }
       exportBtn.disabled=true; appendStatus("Exporting Python and .mcode...");
@@ -1128,7 +908,7 @@
         const result=await postJson("/api/export-mcode",{
           commandsPath:state.commandsPath,baseName:$("baseName").value.trim()||"ui_draw_job",usePen:$("usePen").checked,servoPort:$("servoPort").value,
           mmPerStraightUnit:Number($("mmPerStraightUnit").value),minMoveMm:Number($("minMoveMm").value),
-          minStraightUnits:Number($("minStraightUnits").value),
+          minStraightUnits:Number($("minStraightUnits").value),minDrawnSegmentMm:Number($("minDrawnSegmentMm").value),
           turnScale:Number($("turnScale").value),penLiftDelta:Number($("penLiftDelta").value),
           penDelayS:Number($("penDelayS").value),turnDelayS:Number($("turnDelayS").value),
           cornerLiftTurnDeg:Number($("cornerLiftTurnDeg").value),penForwardOffsetMm:Number($("penForwardOffsetMm").value),

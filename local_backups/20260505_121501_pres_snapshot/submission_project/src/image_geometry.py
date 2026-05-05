@@ -24,7 +24,7 @@ def composite_alpha_onto_background(
     image: np.ndarray,
     background_bgr: Sequence[int] = (255, 255, 255),
 ) -> np.ndarray:
-   
+    """Flatten an image with alpha onto a solid background."""
     if image.ndim == 2:
         return image
 
@@ -45,7 +45,9 @@ def load_image_bgr(
     image_path: str | Path,
     background_bgr: Sequence[int] = (255, 255, 255),
 ) -> np.ndarray:
-   
+    """
+    Load an image as BGR while flattening transparency onto a background.
+    """
     image = cv2.imread(str(image_path), cv2.IMREAD_UNCHANGED)
     if image is None:
         raise FileNotFoundError(f"Could not read image: {image_path}")
@@ -64,7 +66,9 @@ def load_image_rgb(
     image_path: str | Path,
     background_bgr: Sequence[int] = (255, 255, 255),
 ) -> np.ndarray:
-    
+    """
+    Load an image as RGB while flattening transparency onto a background.
+    """
     image_bgr = load_image_bgr(image_path=image_path, background_bgr=background_bgr)
     return cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
 
@@ -73,7 +77,9 @@ def load_image_grayscale(
     image_path: str | Path,
     background_bgr: Sequence[int] = (255, 255, 255),
 ) -> np.ndarray:
-   
+    """
+    Load an image as grayscale while flattening transparency onto a background.
+    """
     image_bgr = load_image_bgr(image_path=image_path, background_bgr=background_bgr)
     return cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
 
@@ -84,7 +90,12 @@ def resize_with_aspect_pad(
     pad_value: int | Sequence[int] = 255,
     interpolation: int = cv2.INTER_AREA,
 ) -> np.ndarray:
-   
+    """
+    Resize an image into a fixed canvas without stretching it.
+
+    The resized content is centered on a padded background so downstream stages
+    can keep a stable working size while preserving the original geometry.
+    """
     target_w, target_h = target_size
     src_h, src_w = image.shape[:2]
     if src_w <= 0 or src_h <= 0:

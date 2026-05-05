@@ -1,4 +1,4 @@
-"""Local web UI for the robot-drawing pipeline."""
+"""Helpers used to run the local UI for upload, preview, comparison, and export."""
 
 from __future__ import annotations
 
@@ -58,21 +58,9 @@ DEFAULT_ROBOT_EXPORT_SETTINGS = {
 
 VERIFIED_CHECKPOINT_NAMES = [
     "line_model_presentation_filledmask_tuned.pt",
-    "line_model.pt",
-    "line_model_photosketch_w5_aspect_overnight.pt",
-    "line_model_photosketch_w5_aspect.pt",
-    "line_model_photosketch_w5_aspect_quick.pt",
-    "line_model_finetuned.pt",
-    "line_model_photosketch_w5.pt",
-    "line_model_photosketch.pt",
-    "line_model_v2.pt",
 ]
 
-EXPERIMENTAL_CHECKPOINT_HINTS = (
-    "vehicle_logos",
-    "geometric",
-    "outline_geometric",
-)
+EXPERIMENTAL_CHECKPOINT_HINTS: tuple[str, ...] = ()
 
 IMAGE_DATA_URL_RE = re.compile(r"^data:(?P<mime>[\w/+.-]+);base64,(?P<data>.+)$")
 
@@ -190,10 +178,8 @@ def build_ui_config() -> dict:
         },
         "checkpoints": checkpoints,
         "notes": {
-            "recommendedPipeline": "classical + two_opt",
-            "aiSummary": "Perception compares a classical baseline with an ML segmentation model. Planning compares nearest-neighbor with two-opt route optimization.",
-            "recommendedCheckpointNote": "Recommended ML checkpoint: line_model_presentation_filledmask_tuned.pt. The live demo path remains classical plus two-opt.",
-            "robotSummary": "UI export defaults match the current pen mount: with the mBot2 back at the bottom edge, the pen contact point starts about 20 cm into A4 at (105, 97), facing into the paper. Pen-up uses negative servo delta, pen-down uses positive servo delta, PEN_LIFT_DELTA 36, TURN_SCALE 1.04, 160 mm forward pen offset, and short segments are preserved by default so corners are not stretched.",
+            "recommendedPipeline": "Classical + two-opt",
+            "recommendedCheckpointNote": "Recommended ML checkpoint: line_model_presentation_filledmask_tuned.pt.",
         },
     }
 

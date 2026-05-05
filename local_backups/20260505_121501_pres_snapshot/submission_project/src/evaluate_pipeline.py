@@ -9,7 +9,7 @@ import numpy as np
 
 
 def load_binary_mask(mask_path: Path, target_size: tuple[int, int]) -> np.ndarray:
-    
+    """Load a mask, resize it to the run size, and binarize it."""
     mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
     if mask is None:
         raise FileNotFoundError(f"Could not read mask: {mask_path}")
@@ -18,7 +18,7 @@ def load_binary_mask(mask_path: Path, target_size: tuple[int, int]) -> np.ndarra
 
 
 def compute_mask_metrics(pred_mask: np.ndarray, gt_mask: np.ndarray) -> dict[str, float]:
-
+    """Compute simple overlap scores for a predicted mask."""
     pred = pred_mask.astype(bool)
     gt = gt_mask.astype(bool)
 
@@ -56,7 +56,7 @@ def _round_or_none(value: float | None, digits: int = 2) -> float | None:
 
 
 def build_summary(rows: list[dict]) -> dict:
-   
+    """Group UI comparison runs into the summary structure shown in the browser."""
     group_map: dict[tuple[str, str], list[dict]] = {}
     for row in rows:
         key = (row["vision_mode"], row["path_ordering"])

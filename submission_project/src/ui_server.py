@@ -1,4 +1,4 @@
-"""Local web UI for the robot-drawing pipeline."""
+"""Helpers used to run the local UI for upload, preview, comparison, and export."""
 
 from __future__ import annotations
 
@@ -19,7 +19,6 @@ import cv2
 import numpy as np
 
 import main as pipeline_main
-from src import bridge_sender
 from src.bridge_protocol import load_plot_commands
 from src.evaluate_pipeline import build_summary, compute_mask_metrics, load_binary_mask
 from src.mblock_script_generator import (
@@ -43,8 +42,9 @@ DEFAULT_ROBOT_EXPORT_SETTINGS = {
     "servoPort": "S1",
     "mmPerStraightUnit": 10.0,
     "turnScale": 1.04,
-    "minMoveMm": 20.0,
-    "minStraightUnits": 2.0,
+    "minMoveMm": 0.5,
+    "minStraightUnits": 0.0,
+    "minDrawnSegmentMm": 0.0,
     "penLiftDelta": 36.0,
     "penDelayS": 0.3,
     "turnDelayS": 0.1,
@@ -59,20 +59,11 @@ DEFAULT_ROBOT_EXPORT_SETTINGS = {
 VERIFIED_CHECKPOINT_NAMES = [
     "line_model_presentation_filledmask_tuned.pt",
     "line_model.pt",
-    "line_model_photosketch_w5_aspect_overnight.pt",
     "line_model_photosketch_w5_aspect.pt",
-    "line_model_photosketch_w5_aspect_quick.pt",
-    "line_model_finetuned.pt",
-    "line_model_photosketch_w5.pt",
-    "line_model_photosketch.pt",
-    "line_model_v2.pt",
+    "line_model_photosketch_w5_aspect_overnight.pt",
 ]
 
-EXPERIMENTAL_CHECKPOINT_HINTS = (
-    "vehicle_logos",
-    "geometric",
-    "outline_geometric",
-)
+EXPERIMENTAL_CHECKPOINT_HINTS: tuple[str, ...] = ()
 
 IMAGE_DATA_URL_RE = re.compile(r"^data:(?P<mime>[\w/+.-]+);base64,(?P<data>.+)$")
 
@@ -190,10 +181,8 @@ def build_ui_config() -> dict:
         },
         "checkpoints": checkpoints,
         "notes": {
-            "recommendedPipeline": "classical + two_opt",
-            "aiSummary": "Perception compares a classical baseline with an ML segmentation model. Planning compares nearest-neighbor with two-opt route optimization.",
-            "recommendedCheckpointNote": "Recommended ML checkpoint: line_model_presentation_filledmask_tuned.pt. The live demo path remains classical plus two-opt.",
-            "robotSummary": "UI export defaults match the current pen mount: with the mBot2 back at the bottom edge, the pen contact point starts about 20 cm into A4 at (105, 97), facing into the paper. Pen-up uses negative servo delta, pen-down uses positive servo delta, PEN_LIFT_DELTA 36, TURN_SCALE 1.04, 160 mm forward pen offset, and small robot moves are clamped up instead of dropped.",
+            "recommendedPipeline": "Classical + two-opt",
+            "recommendedCheckpointNote": "Recommended ML checkpoint: line_model_presentation_filledmask_tuned.pt.",
         },
     }
 
@@ -230,15 +219,7 @@ def render_path_preview(
     margin_mm: float,
     output_path: Path,
 ) -> None:
-    """
-    Render a paper-style preview of the ordered drawing paths.
-
-    Implementation note:
-    - the UI preview is for operator confidence, not geometric truth
-    - fit the preview canvas to the visible drawing bounds rather than the full
-      paper aspect ratio, otherwise square drawings appear cramped inside a tall
-      page-shaped image
-    """
+    
     all_points = [(x, y) for path in paths_mm for x, y in path]
     if all_points:
         xs = np.array([point[0] for point in all_points], dtype=np.float32)
@@ -331,13 +312,7 @@ def render_path_preview(
 
 
 def render_detection_preview(mask: np.ndarray, output_path: Path) -> None:
-    """
-    Render a UI-friendly detection preview.
-
-    The raw edge map uses the fixed working canvas, which is fine for processing
-    but looks awkward in the comparison cards. This view crops around the active
-    pixels and centers them on a compact preview canvas.
-    """
+    
     binary = (mask > 0).astype(np.uint8) * 255
     points = np.column_stack(np.where(binary > 0))
     if points.size == 0:
@@ -610,38 +585,6 @@ def compare_experiments_request(payload: dict) -> dict:
     return result_payload
 
 
-def send_commands_request(payload: dict) -> dict:
-    commands_path = resolve_repo_path(str(payload.get("commandsPath", "")))
-    mode = str(payload.get("mode", "socket"))
-    prepend_ping = bool(payload.get("prependPing", True))
-
-    commands = load_plot_commands(str(commands_path))
-    session = bridge_sender.build_session(commands, prepend_ping=prepend_ping)
-
-    if mode == "socket":
-        bridge_sender.send_socket(
-            session,
-            host=str(payload.get("host", "127.0.0.1")),
-            port=int(payload.get("port", 8765)),
-            delay_ms=int(payload.get("delayMs", 20)),
-            connect_attempts=int(payload.get("connectAttempts", 20)),
-            retry_delay_ms=int(payload.get("retryDelayMs", 500)),
-        )
-        destination = f"{payload.get('host', '127.0.0.1')}:{int(payload.get('port', 8765))}"
-    elif mode == "file":
-        outbox = resolve_repo_path(str(payload.get("outbox", "output/bridge_commands.jsonl")))
-        bridge_sender.send_file(session, str(outbox))
-        destination = str(outbox)
-    else:
-        raise ValueError(f"Unsupported send mode: {mode}")
-
-    return {
-        "message": f"Sent {len(session)} bridge commands via {mode}.",
-        "destination": destination,
-        "commandSummary": bridge_sender.summarize_commands(session),
-    }
-
-
 def export_mcode_request(payload: dict) -> dict:
     commands_path = resolve_repo_path(str(payload.get("commandsPath", "")))
     commands = load_plot_commands(str(commands_path))
@@ -658,6 +601,7 @@ def export_mcode_request(payload: dict) -> dict:
         min_turn_deg=float(payload.get("minTurnDeg", 1.0)),
         min_move_mm=float(payload.get("minMoveMm", DEFAULT_ROBOT_EXPORT_SETTINGS["minMoveMm"])),
         min_straight_units=float(payload.get("minStraightUnits", DEFAULT_ROBOT_EXPORT_SETTINGS["minStraightUnits"])),
+        min_drawn_segment_mm=float(payload.get("minDrawnSegmentMm", DEFAULT_ROBOT_EXPORT_SETTINGS["minDrawnSegmentMm"])),
         corner_lift_turn_deg=float(payload.get("cornerLiftTurnDeg", DEFAULT_ROBOT_EXPORT_SETTINGS["cornerLiftTurnDeg"])),
         pen_forward_offset_mm=float(payload.get("penForwardOffsetMm", DEFAULT_ROBOT_EXPORT_SETTINGS["penForwardOffsetMm"])),
         pen_lateral_offset_mm=float(payload.get("penLateralOffsetMm", DEFAULT_ROBOT_EXPORT_SETTINGS["penLateralOffsetMm"])),
@@ -761,10 +705,6 @@ class UIServerHandler(BaseHTTPRequestHandler):
 
             if parsed.path == "/api/compare":
                 json_response(self, {"ok": True, "result": compare_experiments_request(payload)})
-                return
-
-            if parsed.path == "/api/send":
-                json_response(self, {"ok": True, "result": send_commands_request(payload)})
                 return
 
             if parsed.path == "/api/export-mcode":

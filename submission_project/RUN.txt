@@ -1,0 +1,6 @@
+To run the project :
+
+open a terminal in this folder and run:
+python -m src.ui_server --open-browser --port 8010
+
+Nb: Do not use the Run button on main.py because that file expects an --image argument.

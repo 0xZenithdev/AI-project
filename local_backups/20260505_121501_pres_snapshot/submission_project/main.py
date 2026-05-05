@@ -24,7 +24,7 @@ DEFAULT_PEN_ADVANCE_FROM_BOTTOM_MM = 200.0
 
 
 def resolve_cleanup_settings(args: argparse.Namespace, raw_path_count: int) -> tuple[dict[str, float], str]:
-   
+    """Return cleanup settings and whether they are default or manual."""
     defaults = {
         "min_path_length_mm": 2.0,
         "min_segment_length_mm": 0.75,
@@ -48,7 +48,14 @@ def resolve_cleanup_settings(args: argparse.Namespace, raw_path_count: int) -> t
 
 
 def resolve_start_pose(args: argparse.Namespace) -> tuple[tuple[float, float], float]:
-    
+    """
+    Resolve the pen-tip start pose used by planning and robot export.
+
+    Coordinates follow the paper reference frame:
+    - x increases to the right
+    - y increases downward
+    - heading 90 degrees faces into the page from the bottom edge
+    """
     paper_width_mm = float(getattr(args, "paper_width_mm", 210.0))
     paper_height_mm = float(getattr(args, "paper_height_mm", 297.0))
     start_x_mm = getattr(args, "start_x_mm", None)
@@ -64,7 +71,7 @@ def resolve_start_pose(args: argparse.Namespace) -> tuple[tuple[float, float], f
 
 
 def parse_args() -> argparse.Namespace:
-    
+    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Generate drawing commands from an image.")
     parser.add_argument(
         "--image",
@@ -236,7 +243,7 @@ def run_pipeline(args: argparse.Namespace) -> dict:
 
 
 def export_outputs(args: argparse.Namespace, results: dict) -> None:
-    
+    """Write output files for the current run."""
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     edges_path = output_dir / "edges_preview.png"
@@ -283,7 +290,7 @@ def export_outputs(args: argparse.Namespace, results: dict) -> None:
     with (output_dir / "paths_summary.json").open("w", encoding="utf-8") as f:
         json.dump(paths_summary, f, indent=2)
 
-    
+    # Save the plain-text command file used by the UI export flow.
     cmd_text = commands_to_text(results["commands"])
     (output_dir / "plot_commands.txt").write_text(cmd_text, encoding="utf-8")
 
@@ -292,7 +299,7 @@ def main() -> None:
     args = parse_args()
     results = run_pipeline(args)
 
-    
+    # Print a short runtime summary for terminal use.
     print(f"Input image: {args.image}")
     print(f"Vision mode: {args.vision_mode}")
     if results["vision_info"]["effective_mode"] != args.vision_mode:

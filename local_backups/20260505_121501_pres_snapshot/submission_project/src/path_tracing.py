@@ -26,7 +26,7 @@ _NEIGHBOR_OFFSETS = [
 def clean_binary_line_map(
     line_map: np.ndarray,
 ) -> np.ndarray:
-    
+    """Normalize a binary line map before vector tracing."""
     binary = (line_map > 0).astype(np.uint8) * 255
     if cv2.countNonZero(binary) == 0:
         return binary
@@ -47,7 +47,11 @@ def clean_binary_line_map(
 def skeletonize_line_map(
     line_map: np.ndarray,
 ) -> np.ndarray:
-    
+    """
+    Thin a binary line map to a 1-pixel-style centerline.
+
+    This keeps thick strokes from turning into duplicated boundary traces.
+    """
     binary = clean_binary_line_map(line_map)
     if cv2.countNonZero(binary) == 0:
         return binary
@@ -128,7 +132,12 @@ def _walk_path(
 def trace_skeleton_paths(
     skeleton: np.ndarray,
 ) -> list[list[Point]]:
-   
+    """
+    Convert a skeletonized line image into traced pixel paths.
+
+    Endpoints and junctions become graph nodes. Walks between them become
+    robot-friendly stroke paths.
+    """
     ys, xs = np.where(skeleton > 0)
     points = {(int(x), int(y)) for y, x in zip(ys, xs)}
     if not points:
@@ -172,7 +181,7 @@ def simplify_traced_path(
     min_points: int = 2,
     approx_epsilon_ratio: float = 0.01,
 ) -> Path:
-    
+    """Simplify a traced path while preserving obvious corners."""
     is_closed = len(path) >= 3 and path[0] == path[-1]
     contour_points = path[:-1] if is_closed else path
     if len(contour_points) < 2:
@@ -202,7 +211,7 @@ def simplify_closed_contour(
     approx_epsilon_ratio: float = 0.01,
     min_points: int = 3,
 ) -> Path:
-
+    """Simplify one closed contour and explicitly keep it closed."""
     arc_length = cv2.arcLength(contour, closed=True)
     epsilon = max(1.0, approx_epsilon_ratio * arc_length)
     simplified = cv2.approxPolyDP(contour, epsilon, closed=True)
@@ -215,7 +224,11 @@ def simplify_closed_contour(
 
 
 def align_closed_path(reference: Path, candidate: Path) -> Path:
-    
+    """
+    Rotate/reverse one closed path so its vertices line up with another path.
+
+    This lets us collapse a thick ring stroke into a centerline-style polygon.
+    """
     ref_points = reference[:-1]
     candidate_points = candidate[:-1]
     if len(ref_points) != len(candidate_points):
@@ -248,7 +261,7 @@ def average_closed_paths(
     outer: Path,
     inner: Path,
 ) -> Path:
-    
+    """Average 2 aligned closed polygons into one centerline-style polygon."""
     outer_points = outer[:-1]
     inner_points = inner[:-1]
     if len(outer_points) != len(inner_points):
@@ -271,7 +284,7 @@ def average_closed_paths(
 
 
 def closed_path_area(path: Path) -> float:
-   
+    """Compute polygon area for a closed path."""
     if len(path) < 4:
         return 0.0
     contour_points = np.array(path[:-1], dtype=np.float32).reshape(-1, 1, 2)
@@ -279,7 +292,7 @@ def closed_path_area(path: Path) -> float:
 
 
 def closed_path_centroid(path: Path) -> Point:
-    
+    """Compute a simple centroid for a closed path."""
     if len(path) < 2:
         return (0, 0)
     points = path[:-1] if len(path) >= 3 and path[0] == path[-1] else path
@@ -294,7 +307,7 @@ def closed_path_centroid(path: Path) -> Point:
 
 
 def closed_path_bbox(path: Path) -> tuple[int, int]:
-  
+    """Return bounding-box width and height for a path."""
     points = path[:-1] if len(path) >= 3 and path[0] == path[-1] else path
     if not points:
         return (0, 0)
@@ -304,7 +317,12 @@ def closed_path_bbox(path: Path) -> tuple[int, int]:
 
 
 def resample_closed_path(path: Path, target_points: int) -> Path:
-    
+    """
+    Resample a closed polygon so another path can be aligned/averaged with it.
+
+    This is useful when 2 duplicate contours represent the same shape but have
+    different vertex counts after simplification.
+    """
     points = path[:-1] if len(path) >= 3 and path[0] == path[-1] else path[:]
     if len(points) < 3 or target_points < 3:
         return []
@@ -352,7 +370,12 @@ def merge_duplicate_closed_paths(
     max_center_distance_ratio: float = 0.08,
     max_bbox_size_gap_ratio: float = 0.22,
 ) -> list[Path]:
-    
+    """
+    Merge near-duplicate closed loops into one centerline-style contour.
+
+    This targets the common Canny failure mode where a thick stroke produces 2
+    very similar closed loops around the same intended shape.
+    """
     closed_paths = [
         path for path in paths
         if len(path) >= 4 and path[0] == path[-1]
@@ -451,7 +474,12 @@ def extract_ring_paths(
     binary_line_map: np.ndarray,
     approx_epsilon_ratio: float = 0.01,
 ) -> tuple[list[Path], np.ndarray]:
-    
+    """
+    Detect outlined closed strokes and collapse their inner/outer borders.
+
+    Example:
+    a thick square outline becomes one square path instead of 2 borders.
+    """
     contours, hierarchy = cv2.findContours(binary_line_map, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
     processed_mask = np.zeros_like(binary_line_map)
     if hierarchy is None:
@@ -515,7 +543,12 @@ def extract_elongated_component_paths(
     min_aspect_ratio: float = 6.0,
     min_extent: float = 0.55,
 ) -> tuple[list[Path], np.ndarray]:
-   
+    """
+    Collapse thick filled bars into single centerline segments.
+
+    This helps simple vertical/horizontal bars avoid fragmenting into many
+    tiny skeleton segments.
+    """
     binary = (binary_line_map > 0).astype(np.uint8)
     processed_mask = np.zeros_like(binary_line_map)
     component_count, labels, stats, _centroids = cv2.connectedComponentsWithStats(binary, connectivity=8)
@@ -572,7 +605,7 @@ def _dedupe_open_paths(
     paths: list[Path],
     endpoint_tolerance_px: float = 4.0,
 ) -> list[Path]:
-   
+    """Drop near-identical open line segments produced by multiple passes."""
     deduped: list[Path] = []
 
     for path in paths:
@@ -612,7 +645,16 @@ def extract_axis_aligned_stroke_paths(
     kernel_span_px: int = 15,
     min_coverage_ratio: float = 0.72,
 ) -> tuple[list[Path], np.ndarray, float]:
-   
+    """
+    Recover centerline segments for images dominated by straight bars.
+
+    This is the right interpretation for cases like:
+    - a plus sign made of 2 thick strokes
+    - a single vertical or horizontal bar
+
+    In those cases, tracing the outer silhouette creates a star-like polygon,
+    while the intended robot result is the stroke centerline.
+    """
     clean_map = clean_binary_line_map(binary_line_map)
     if cv2.countNonZero(clean_map) == 0:
         return [], np.zeros_like(clean_map), 0.0
@@ -655,7 +697,7 @@ def render_trace_map(
     paths: list[Path],
     image_shape: tuple[int, int],
 ) -> np.ndarray:
-  
+    """Render traced paths back into a debug image."""
     canvas = np.zeros(image_shape, dtype=np.uint8)
 
     for path in paths:
@@ -673,7 +715,12 @@ def extract_filled_region_paths(
     binary_line_map: np.ndarray,
     approx_epsilon_ratio: float = 0.01,
 ) -> list[Path]:
-  
+    """
+    Trace dense filled regions by their outer/inner boundaries.
+
+    This is the clean fallback for filled shapes that should be outlined rather
+    than skeletonized.
+    """
     contours, _ = cv2.findContours(binary_line_map, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
     paths: list[Path] = []
 
@@ -693,7 +740,9 @@ def extract_paths_from_line_map(
     min_points: int = 2,
     approx_epsilon_ratio: float = 0.01,
 ) -> tuple[list[Path], np.ndarray]:
-    
+    """
+    Convert a binary line map into ordered stroke paths plus a traced debug map.
+    """
     clean_map = clean_binary_line_map(line_map)
     elongated_paths, elongated_mask = extract_elongated_component_paths(clean_map)
     ring_input = cv2.subtract(clean_map, elongated_mask)
@@ -726,7 +775,7 @@ def extract_contours(
     min_points: int = 2,
     approx_epsilon_ratio: float = 0.01,
 ) -> list[Path]:
-   
+    """Backward-compatible wrapper around the stroke-tracing pipeline."""
     paths, _ = extract_paths_from_line_map(
         edges,
         min_points=min_points,
@@ -740,7 +789,12 @@ def extract_edge_contour_paths(
     min_points: int = 4,
     approx_epsilon_ratio: float = 0.01,
 ) -> list[Path]:
-   
+    """
+    Convert a thin edge map into contour paths.
+
+    Keeping child contours when available removes most doubled-outline artifacts
+    from Canny-style edge loops.
+    """
     contours, hierarchy = cv2.findContours(edge_map, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
     if hierarchy is None:
         return []

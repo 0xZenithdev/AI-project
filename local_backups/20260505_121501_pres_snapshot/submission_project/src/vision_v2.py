@@ -27,7 +27,12 @@ def suppress_border_components(
     min_area_ratio: float = 0.02,
     min_span_ratio: float = 0.35,
 ) -> np.ndarray:
-    
+    """
+    Remove giant border-touching components that are usually page/background.
+
+    This is the main protection against tracing the paper border in photographed
+    sketches or shaded backgrounds.
+    """
     binary = (binary_mask > 0).astype(np.uint8)
     if cv2.countNonZero(binary) == 0:
         return binary * 255
@@ -66,7 +71,13 @@ def filter_outline_components(
     min_line_length_px: int = 40,
     min_line_aspect_ratio: float = 8.0,
 ) -> np.ndarray:
- 
+    """
+    Keep components that look like real drawing structure, not tiny caption text.
+
+    A component survives when it is either:
+    - shape-like: both dimensions are meaningfully large, or
+    - line-like: very elongated, such as a long single stroke
+    """
     binary = (binary_mask > 0).astype(np.uint8)
     if cv2.countNonZero(binary) == 0:
         return binary * 255
@@ -102,7 +113,13 @@ def filter_blob_components(
     min_line_length_px: int = 40,
     min_line_aspect_ratio: float = 8.0,
 ) -> np.ndarray:
-   
+    """
+    Keep meaningful components in a binary mask.
+
+    This preserves both:
+    - blob-like filled shapes
+    - long thin strokes such as a single vertical or horizontal line
+    """
     binary = (binary_mask > 0).astype(np.uint8)
     if cv2.countNonZero(binary) == 0:
         return binary * 255
@@ -134,7 +151,7 @@ def preprocess_foreground_mask(
     blur_kernel: int = 3,
     illumination_sigma: float = 15.0,
 ) -> tuple[np.ndarray, np.ndarray]:
-  
+    """Build a normalized dark-foreground mask for the classical path."""
     img_gray = load_image_grayscale(image_path)
     img_resized = resize_with_aspect_pad(img_gray, target_size=target_size, pad_value=255)
     illumination = cv2.GaussianBlur(img_resized, (0, 0), illumination_sigma)
@@ -161,7 +178,12 @@ def preprocess_outline_edges(
     canny_low: int = 100,
     canny_high: int = 200,
 ) -> tuple[np.ndarray, np.ndarray]:
-   
+    """
+    Extract clean outline edges for line-art style inputs.
+
+    This is close to the older "classic mode" behavior, with one extra cleanup
+    pass to drop tiny text/noise fragments.
+    """
     gray = load_image_grayscale(image_path)
     gray = resize_with_aspect_pad(gray, target_size=target_size, pad_value=255)
     blur = cv2.GaussianBlur(gray, (blur_kernel, blur_kernel), 0)
@@ -181,7 +203,12 @@ def preprocess_color_regions(
     saturation_threshold: int = 18,
     white_distance_threshold: float = 20.0,
 ) -> tuple[np.ndarray, np.ndarray]:
-  
+    """
+    Detect colorful filled regions that should be outlined.
+
+    This keeps colorful icons/logos in the classical path without introducing a
+    large decision tree.
+    """
     image_bgr = load_image_bgr(image_path)
     resized_bgr = resize_with_aspect_pad(
         image_bgr,
@@ -207,7 +234,7 @@ def binary_overlap_metrics(
     prediction: np.ndarray,
     reference: np.ndarray,
 ) -> dict[str, float]:
-  
+    """Measure how much one binary mask agrees with another."""
     pred = prediction > 0
     ref = reference > 0
     pred_pixels = int(pred.sum())
@@ -234,7 +261,7 @@ def is_color_region_artwork(
     min_components: int = 6,
     min_total_area_ratio: float = 0.08,
 ) -> bool:
-  
+    """Detect many filled colored regions such as patterned icons/logos."""
     binary = (color_region_mask > 0).astype(np.uint8)
     if cv2.countNonZero(binary) == 0:
         return False
@@ -262,7 +289,9 @@ def has_large_dense_component(
     min_component_area_ratio: float = 0.08,
     min_component_extent: float = 0.75,
 ) -> bool:
-  
+    """
+    Detect large filled blobs that should be outlined instead of skeletonized.
+    """
     binary = (binary_line_map > 0).astype(np.uint8)
     if int(binary.sum()) == 0:
         return False
@@ -290,7 +319,11 @@ def has_large_elongated_component(
     min_component_extent: float = 0.6,
     min_aspect_ratio: float = 6.0,
 ) -> bool:
-   
+    """
+    Detect thick bar-like components that should collapse to one centerline.
+
+    This separates "long stroke" inputs from truly filled logos/shapes.
+    """
     binary = (binary_line_map > 0).astype(np.uint8)
     if int(binary.sum()) == 0:
         return False
@@ -324,7 +357,7 @@ def has_large_bbox_component(
     min_bbox_width_ratio: float = 0.65,
     min_bbox_height_ratio: float = 0.65,
 ) -> bool:
-   
+    """Detect coarse masks that span most of the page with only a few paths."""
     binary = (binary_line_map > 0).astype(np.uint8)
     if int(binary.sum()) == 0:
         return False
@@ -348,7 +381,13 @@ def should_trace_ml_mask_as_filled_region(
     min_component_area_ratio: float = 0.018,
     min_component_extent: float = 0.24,
 ) -> bool:
-   
+    """
+    Detect ML masks that represent filled regions, not line strokes.
+
+    Filled-region prediction is much easier for simple colored symbols than
+    predicting a perfectly closed 1-pixel contour. When the model outputs a
+    filled blob, we should trace its boundary instead of skeletonizing it.
+    """
     binary = (binary_mask > 0).astype(np.uint8)
     if cv2.countNonZero(binary) == 0:
         return False
@@ -396,7 +435,12 @@ def get_drawing_paths_classical(
     target_size: tuple[int, int] = (210, 297),
     return_info: bool = False,
 ) -> tuple[list[Path], np.ndarray] | tuple[list[Path], np.ndarray, dict]:
-   
+    """
+    Classical path extraction.
+
+    The stages are applied in this order:
+    color regions -> filled boundaries -> outline edges.
+    """
     _color_bgr, color_region_mask = preprocess_color_regions(
         image_path=image_path,
         target_size=target_size,
@@ -488,7 +532,12 @@ def get_ml_fallback_reason(
     path_count: int,
     color_region_artwork: bool,
 ) -> str | None:
-   
+    """
+    Decide whether ML mode should fall back to classical extraction.
+
+    The policy stays intentionally narrow:
+    only fall back when the ML output is empty or clearly degenerate.
+    """
     foreground_pixels = int(cv2.countNonZero(clean_mask))
     if foreground_pixels == 0 or path_count == 0:
         return "empty_ml_mask"
